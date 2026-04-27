@@ -1,4 +1,4 @@
-﻿let 必定要修改VL密钥 = '12345678-1234-1234-1234-123456789012';
+﻿const 必定要修改VL密钥 = '12345678-1234-1234-1234-123456789012';
 
 export default {
 	async fetch(访问请求) {
@@ -7,11 +7,9 @@ export default {
 			const ips = url.searchParams.getAll('ip');
 			if (ips) {
 				const 当前时间 = new Date();
-				const 需要刷新缓存 = (反代MAP.size === 0) || (url.search !== 链接SEARCH) || (当前时间 - 缓存时间 > 1000 * 60 * 10);//10分钟
+				const 需要刷新缓存 = (反代MAP.size === 0) || (url.search !== 链接SEARCH) || (当前时间.getTime() - 缓存时间.getTime() > 1000 * 60 * 10);//10分钟
 				if (需要刷新缓存 && !正在刷新) {
-					正在刷新 = true;  // 加锁
-					链接SEARCH = url.search;
-					缓存时间 = 当前时间;
+					正在刷新 = true; 链接SEARCH = url.search; 缓存时间 = 当前时间;
 					for (const ip of ips) {
 						const u = new URL('url://' + ip.replace('colo', 访问请求.cf.colo).toLowerCase());
 						try {
@@ -51,11 +49,11 @@ async function 启动传输管道(WS接口) {
 					首包数据 = false;
 					await 解析VL标头(event.data);
 				} else { await 传输数据.write(event.data); }
-			} catch (error) { WS接口?.close(1000, error.message) }
+			} catch (error) { console.log(error.message); WS接口?.close(1000, error.message) }
 		});
 	});
 	async function 解析VL标头(VL数据) {
-		if (验证VL的密钥(new Uint8Array(VL数据.slice(1, 17))) !== 必定要修改VL密钥) { throw new Error('密钥验证失败'); }
+		if (!check_uuid(_UUID, VL数据.slice(1, 17))) { throw new Error('密钥验证失败'); }
 		const 获取数据定位 = new Uint8Array(VL数据)[17];
 		const 提取端口索引 = 18 + 获取数据定位 + 1;
 		const 建立端口缓存 = VL数据.slice(提取端口索引, 提取端口索引 + 2);
@@ -63,27 +61,13 @@ async function 启动传输管道(WS接口) {
 		const 提取地址索引 = 提取端口索引 + 2;
 		const 建立地址缓存 = new Uint8Array(VL数据.slice(提取地址索引, 提取地址索引 + 1));
 		const 识别地址类型 = 建立地址缓存[0];
-		let 地址长度 = 0, 访问地址 = '', 地址信息索引 = 提取地址索引 + 1;
+		let 长度 = 0, 访问地址 = '', 地址索引 = 提取地址索引 + 1;
 		switch (识别地址类型) {
-			case 1:
-				地址长度 = 4;
-				访问地址 = new Uint8Array(VL数据.slice(地址信息索引, 地址信息索引 + 地址长度)).join('.');
-				break;
-			case 2:
-				地址长度 = new Uint8Array(VL数据.slice(地址信息索引, 地址信息索引 + 1))[0];
-				地址信息索引 += 1;
-				访问地址 = new TextDecoder().decode(VL数据.slice(地址信息索引, 地址信息索引 + 地址长度));
-				break;
-			case 3:
-				地址长度 = 16;
-				const dataView = new DataView(VL数据.slice(地址信息索引, 地址信息索引 + 地址长度));
-				const ipv6 = [];
-				for (let i = 0; i < 8; i++) { ipv6.push(dataView.getUint16(i * 2).toString(16)); }
-				访问地址 = `[${ipv6.join(':')}]`;
-				break;
+			case 1: 长度 = 4; 访问地址 = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 长度)).join('.'); break;
+			case 2: 长度 = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 1))[0]; 地址索引 += 1; 访问地址 = new TextDecoder().decode(VL数据.slice(地址索引, 地址索引 + 长度)); break;
+			case 3: 长度 = 16; const dataView = new DataView(VL数据.slice(地址索引, 地址索引 + 长度)); 访问地址 = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
 			default: throw new Error('地址类型错误');
 		}
-		const 写入初始数据 = VL数据.slice(地址信息索引 + 地址长度);
 		const 目标集 = [[访问地址, 访问端口]];
 		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip地址, { 端口, 失败次数 }]) => { 目标集.push([ip地址, 端口]); });
 		for (const [目标地址, 目标端口] of 目标集) {
@@ -97,12 +81,11 @@ async function 启动传输管道(WS接口) {
 				let { 端口, 失败次数 } = 反代MAP.get(目标地址);
 				if (失败次数 < 0) continue;
 				if (++失败次数 >= 10) {
-					反代MAP.delete(目标地址);
-					console.log("多次连接失败，删除反代:", 目标地址);
+					反代MAP.delete(目标地址); console.log("多次连接失败，删除反代:", 目标地址);
 				} else { 反代MAP.set(目标地址, { 端口: 目标端口, 失败次数 }); }
 			}
 		}
-		建立传输管道(写入初始数据);
+		建立传输管道(VL数据.slice(地址索引 + 长度));
 	}
 	async function 建立传输管道(写入初始数据) {
 		传输数据 = TCP接口.writable.getWriter();
@@ -114,13 +97,9 @@ async function 启动传输管道(WS接口) {
 		);
 	}
 }
-
 let 链接SEARCH = '', 正在刷新 = false, 缓存时间 = new Date(1986, 9, 1), 反代MAP = new Map();
-
 import { connect } from 'cloudflare:sockets';
-const 转换密钥格式 = Array.from({ length: 256 }, (_, i) => (i + 256).toString(16).slice(1));
-function 验证VL的密钥(a, o = 0) { const h = 转换密钥格式; return `${h[a[o]]}${h[a[o + 1]]}${h[a[o + 2]]}${h[a[o + 3]]}-${h[a[o + 4]]}${h[a[o + 5]]}-${h[a[o + 6]]}${h[a[o + 7]]}-${h[a[o + 8]]}${h[a[o + 9]]}-${h[a[o + 10]]}${h[a[o + 11]]}${h[a[o + 12]]}${h[a[o + 13]]}${h[a[o + 14]]}${h[a[o + 15]]}`; }
-function isValidDomain(hostname) { return /^(?:(?:(?:[a-zA-Z0-9][a-zA-Z0-9-_]{0,61})?[a-zA-Z0-9]\.)*(?:xn--)?[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.(?:xn--)?[a-zA-Z]{2,})$/.test(hostname); }
+const isValidDomain = (hostname) => /^(?:(?:(?:[a-zA-Z0-9][a-zA-Z0-9-_]{0,61})?[a-zA-Z0-9]\.)*(?:xn--)?[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.(?:xn--)?[a-zA-Z]{2,})$/.test(hostname);
 async function getDnsRecord(domain, type) {
 	const apis = [
 		`https://cloudflare-dns.com/dns-query?name=${domain}&type=${type}`, `https://dns.google/resolve?name=${domain}&type=${type}`,
@@ -128,8 +107,7 @@ async function getDnsRecord(domain, type) {
 	];
 	for (const api of apis) {
 		try {
-			const response = await fetch(api, { headers: { 'Accept': 'application/dns-json' }, signal: AbortSignal.timeout(3000) });
-			const data = await response.json();
+			const data = await fetch(api, { headers: { 'Accept': 'application/dns-json' }, signal: AbortSignal.timeout(3000) }).then(r => r.json());
 			if (data.Answer) {
 				const type = Array.isArray(data.Question) ? data.Question[0]?.type : data.Question?.type;
 				const ips = data.Answer.filter(r => r.type === type).map(r => r.data);
@@ -139,3 +117,10 @@ async function getDnsRecord(domain, type) {
 	}
 	return [];
 }
+const uuidToArray = u => u.replace(/-/g, '').match(/.{1,2}/g).map(byte => parseInt(byte, 16));
+const _UUID = uuidToArray(必定要修改VL密钥);
+const check_uuid = (a, b) => {
+	const x = new Uint8Array(a); const y = new Uint8Array(b);
+	for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; }
+	return true;
+};

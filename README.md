@@ -140,6 +140,9 @@ https://www.cloudflare-cn.com/ssl/encrypted-sni/#results
 ### 浏览器ECH设置教程
 https://zhuanlan.zhihu.com/p/3739662610
 
+## 如何自建节点
+参考`自建节点指南.md`
+
 ## 参考学习
 1. [cmliu/edgetunnel](https://github.com/cmliu/edgetunnel)
 2. [byJoey/cfnew](https://github.com/byJoey/cfnew)
