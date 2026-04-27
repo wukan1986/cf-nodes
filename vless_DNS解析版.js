@@ -85,7 +85,7 @@ async function 启动传输管道(WS接口) {
 		}
 		const 写入初始数据 = VL数据.slice(地址信息索引 + 地址长度);
 		const 目标集 = [[访问地址, 访问端口]];
-		Array.from(反代MAP.entries()).slice(-30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip地址, { 端口, 失败次数 }]) => { 目标集.push([ip地址, 端口]); });
+		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip地址, { 端口, 失败次数 }]) => { 目标集.push([ip地址, 端口]); });
 		for (const [目标地址, 目标端口] of 目标集) {
 			try {
 				TCP接口 = connect({ hostname: 目标地址, port: 目标端口 });
