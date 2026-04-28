@@ -88,12 +88,14 @@ async function 启动传输管道(WS接口, request) {
 		}
 		const 目标集 = [{ hostname, port }];
 		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip, { 端口, 失败次数 }]) => { 目标集.push({ hostname: ip, port: 端口 || port }); });
+		let 连接成功 = false;
 		for (const { hostname, port } of 目标集) {
 			try {
 				TCP接口 = connect({ hostname, port });
-				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1500))]);
+				await Promise.race([TCP接口.connected‌, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 2000))]);
 				const 项 = 反代MAP.get(hostname);
 				if (项?.失败次数 > 0) 项.失败次数 = 0;
+				连接成功 = true;
 				break;
 			} catch (连接错误) {
 				const 项 = 反代MAP.get(hostname);
@@ -102,14 +104,15 @@ async function 启动传输管道(WS接口, request) {
 				}
 			}
 		}
+		if (!连接成功) throw new Error('无法连接到目标服务器', hostname);
 		建立传输管道(VL数据.slice(地址索引 + 长度));
 	}
 	async function 建立传输管道(写入初始数据) {
 		传输数据 = TCP接口.writable.getWriter();
-		if (写入初始数据) { await 传输数据.write(写入初始数据); }
+		if (写入初始数据 && 写入初始数据.byteLength > 0) { await 传输数据.write(写入初始数据); }
 		await TCP接口.readable.pipeTo(
 			new WritableStream({
-				write(chunk) { WS接口.send(chunk); },
+				write(chunk) { if (WS接口.readyState === WebSocket.OPEN) WS接口.send(chunk); },
 			}),
 		);
 	}
