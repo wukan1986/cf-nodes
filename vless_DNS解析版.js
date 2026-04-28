@@ -73,30 +73,30 @@ async function 启动传输管道(WS接口, request) {
 		const 获取数据定位 = new Uint8Array(VL数据)[17];
 		const 提取端口索引 = 18 + 获取数据定位 + 1;
 		const 建立端口缓存 = VL数据.slice(提取端口索引, 提取端口索引 + 2);
-		const 访问端口 = new DataView(建立端口缓存).getUint16(0);
+		const port = new DataView(建立端口缓存).getUint16(0);
 		const 提取地址索引 = 提取端口索引 + 2;
 		const 建立地址缓存 = new Uint8Array(VL数据.slice(提取地址索引, 提取地址索引 + 1));
 		const 识别地址类型 = 建立地址缓存[0];
-		let 长度 = 0, 访问地址 = '', 地址索引 = 提取地址索引 + 1;
+		let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
 		switch (识别地址类型) {
-			case 1: 长度 = 4; 访问地址 = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 长度)).join('.'); break;
-			case 2: 长度 = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 1))[0]; 地址索引 += 1; 访问地址 = new TextDecoder().decode(VL数据.slice(地址索引, 地址索引 + 长度)); break;
-			case 3: 长度 = 16; const dataView = new DataView(VL数据.slice(地址索引, 地址索引 + 长度)); 访问地址 = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
+			case 1: 长度 = 4; hostname = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 长度)).join('.'); break;
+			case 2: 长度 = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 1))[0]; 地址索引 += 1; hostname = new TextDecoder().decode(VL数据.slice(地址索引, 地址索引 + 长度)); break;
+			case 3: 长度 = 16; const dataView = new DataView(VL数据.slice(地址索引, 地址索引 + 长度)); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
 			default: throw new Error('地址类型错误');
 		}
-		const 目标集 = [[访问地址, 访问端口]];
-		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip地址, { 端口, 失败次数 }]) => { 目标集.push([ip地址, 端口]); });
-		for (const [目标地址, 目标端口] of 目标集) {
+		const 目标集 = [{ hostname, port }];
+		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip, { 端口, 失败次数 }]) => { 目标集.push({ hostname: ip, port: 端口 }); });
+		for (const { hostname, port } of 目标集) {
 			try {
-				TCP接口 = connect({ hostname: String(目标地址), port: Number(目标端口) });
+				TCP接口 = connect({ hostname, port });
 				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1500))]);
-				const 项 = 反代MAP.get(目标地址);
+				const 项 = 反代MAP.get(hostname);
 				if (项?.失败次数 > 0) 项.失败次数 = 0;
 				break;
 			} catch (连接错误) {
-				const 项 = 反代MAP.get(目标地址);
+				const 项 = 反代MAP.get(hostname);
 				if (项 && 项.失败次数 >= 0 && ++项.失败次数 >= 10) {
-					反代MAP.delete(目标地址); console.log("多次连接失败，删除反代:", 目标地址);
+					反代MAP.delete(hostname); console.log("多次连接失败，删除反代:", hostname);
 				}
 			}
 		}
