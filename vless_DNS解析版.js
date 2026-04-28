@@ -23,22 +23,24 @@ async function 查询DNS(request) {
 		}
 	}
 	if (反代MAP.size >= 30 || 分钟差 <= 10) return; // 缓存太多，或时间太近都不查询
-	正在刷新 = true; console.log('正在刷新缓存...');
+	正在刷新 = true;
 	try {
 		for (const ip of ips) {
 			const u = new URL('url://' + ip.replace('colo', request.cf.colo).toLowerCase());
 			try {
 				if (isIP(u.hostname)) {
-					反代MAP.delete(u.hostname); 反代MAP.set(u.hostname, { 端口: +u.port || 443, 失败次数: -1 }); // IP移动到最后
+					console.log(u.hostname, '直接记录DNS缓存');
+					反代MAP.delete(u.hostname); 反代MAP.set(u.hostname, { 端口: +u.port, 失败次数: -1 }); // 通过删除移动到最后
 				} else {
+					console.log(u.hostname, '正在刷新DNS缓存...');
 					const dnsRecords = (await Promise.all([
 						getDnsRecord(u.hostname, 'A'),
 						getDnsRecord(u.hostname, 'AAAA').then(rr => rr.map(r => `[${r}]`)),
 					])).flat().sort(() => Math.random() - 0.5);
-					dnsRecords.forEach(ip => 反代MAP.has(ip) || 反代MAP.set(ip, { 端口: +u.port || 443, 失败次数: 0 }));
-					console.log(u.hostname, '缓存刷新完成', '新IP数量:', dnsRecords.length, '共缓存IP数量:', 反代MAP.size);
+					dnsRecords.forEach(ip => 反代MAP.has(ip) || 反代MAP.set(ip, { 端口: +u.port, 失败次数: 0 }));
+					console.log(u.hostname, 'DNS缓存刷新完成', '新IP数量:', dnsRecords.length, '共缓存IP数量:', 反代MAP.size);
 				}
-			} catch (error) { console.error(u.hostname, '刷新缓存失败', error); }
+			} catch (error) { console.error(u.hostname, '刷新DNS缓存失败', error); }
 		}
 		缓存时间 = new Date();
 	}
@@ -85,7 +87,7 @@ async function 启动传输管道(WS接口, request) {
 			default: throw new Error('地址类型错误');
 		}
 		const 目标集 = [{ hostname, port }];
-		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip, { 端口, 失败次数 }]) => { 目标集.push({ hostname: ip, port: 端口 }); });
+		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip, { 端口, 失败次数 }]) => { 目标集.push({ hostname: ip, port: 端口 || port }); });
 		for (const { hostname, port } of 目标集) {
 			try {
 				TCP接口 = connect({ hostname, port });
