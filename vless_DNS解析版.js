@@ -18,7 +18,7 @@ export default {
 									getDnsRecord(u.hostname, 'A'),
 									getDnsRecord(u.hostname, 'AAAA').then(rr => rr.map(r => `[${r}]`)),
 								])).flat().sort(() => Math.random() - 0.5);
-								dnsRecords.forEach(ip => 反代MAP.has(ip,) || 反代MAP.set(ip, { 端口: +u.port || 443, 失败次数: 0 }));
+								dnsRecords.forEach(ip => 反代MAP.has(ip) || 反代MAP.set(ip, { 端口: +u.port || 443, 失败次数: 0 }));
 								console.log(u.hostname, '缓存刷新完成', '新IP数量:', dnsRecords.length, '共缓存IP数量:', 反代MAP.size);
 								//  [ERROR] Uncaught Error: internal error; reference = e99q54q6ivev4r4t8trolj61 为何？
 							} else { 反代MAP.set(u.hostname, { 端口: +u.port || 443, 失败次数: -1 }); }
@@ -74,15 +74,14 @@ async function 启动传输管道(WS接口) {
 			try {
 				TCP接口 = connect({ hostname: 目标地址, port: 目标端口 });
 				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 2000))]);
-				反代MAP.has(目标地址) && 反代MAP.set(目标地址, { 端口: 目标端口, 失败次数: 0 });
+				const 项 = 反代MAP.get(目标地址);
+				if (项?.失败次数 > 0) 项.失败次数 = 0;
 				break;
 			} catch (连接错误) {
-				if (!反代MAP.has(目标地址)) continue;
-				let { 端口, 失败次数 } = 反代MAP.get(目标地址);
-				if (失败次数 < 0) continue;
-				if (++失败次数 >= 10) {
+				const 项 = 反代MAP.get(目标地址);
+				if (项 && 项.失败次数 >= 0 && ++项.失败次数 >= 10) {
 					反代MAP.delete(目标地址); console.log("多次连接失败，删除反代:", 目标地址);
-				} else { 反代MAP.set(目标地址, { 端口: 目标端口, 失败次数 }); }
+				}
 			}
 		}
 		建立传输管道(VL数据.slice(地址索引 + 长度));
@@ -117,7 +116,7 @@ async function getDnsRecord(domain, type) {
 	}
 	return [];
 }
-const uuidToArray = u => u.replace(/-/g, '').match(/.{1,2}/g).map(byte => parseInt(byte, 16));
+const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16));
 const _UUID = uuidToArray(必定要修改VL密钥);
 const check_uuid = (a, b) => {
 	const x = new Uint8Array(a); const y = new Uint8Array(b);
