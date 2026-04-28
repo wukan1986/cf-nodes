@@ -13,13 +13,13 @@ async function 查询DNS(request) {
 	if (ips.length === 0) return;
 	const 当前时间 = new Date();
 	let 分钟差 = (当前时间.getTime() - 缓存时间.getTime()) / 60000;
-	let reset = url.searchParams.get('reset'); // 如果不设重置码，长时间后，只有池中数据不多时才刷新
+	const reset = url.searchParams.get('reset'); // 如果不设重置码，长时间后，只有池中数据不多时才刷新
 	if (reset) {
-		reset = +reset.slice(0, 1) || 0;
+		const s = +reset.slice(0, 1) || 0;
 		if (分钟差 > 180) {
-			重置码.clear(); 重置码.add(reset); 反代MAP.clear();  // 3小时后才能刷新
-		} else if (!重置码.has(reset)) {
-			重置码.add(reset); 反代MAP.clear(); 分钟差 = 180; // 新重置码才刷新，刷完后分钟差小了
+			重置码.clear(); 重置码.add(s); 反代MAP.clear();  // 3小时后才能刷新
+		} else if (!重置码.has(s)) {
+			重置码.add(s); 反代MAP.clear(); 分钟差 = 180; // 新重置码才刷新，刷完后分钟差小了
 		}
 	}
 	if (反代MAP.size >= 30 || 分钟差 <= 10) return; // 缓存太多，或时间太近都不查询
@@ -88,7 +88,7 @@ async function 启动传输管道(WS接口, request) {
 		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip地址, { 端口, 失败次数 }]) => { 目标集.push([ip地址, 端口]); });
 		for (const [目标地址, 目标端口] of 目标集) {
 			try {
-				TCP接口 = connect({ hostname: 目标地址, port: 目标端口 });
+				TCP接口 = connect({ hostname: String(目标地址), port: Number(目标端口) });
 				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1500))]);
 				const 项 = 反代MAP.get(目标地址);
 				if (项?.失败次数 > 0) 项.失败次数 = 0;
