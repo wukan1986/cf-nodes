@@ -84,7 +84,7 @@ async function 启动传输管道(WS接口, request) {
 			case 1: 长度 = 4; hostname = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 长度)).join('.'); break;
 			case 2: 长度 = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 1))[0]; 地址索引 += 1; hostname = new TextDecoder().decode(VL数据.slice(地址索引, 地址索引 + 长度)); break;
 			case 3: 长度 = 16; const dataView = new DataView(VL数据.slice(地址索引, 地址索引 + 长度)); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
-			default: throw new Error('地址类型错误');
+			default: throw new Error(`地址类型错误：${识别地址类型}`);
 		}
 		const 目标集 = [{ hostname, port }];
 		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip, { 端口, 失败次数 }]) => { 目标集.push({ hostname: ip, port: 端口 || port }); });
@@ -104,7 +104,7 @@ async function 启动传输管道(WS接口, request) {
 				}
 			}
 		}
-		if (!连接成功) throw new Error('无法连接到目标服务器', hostname);
+		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port}`);
 		建立传输管道(VL数据.slice(地址索引 + 长度));
 	}
 	async function 建立传输管道(写入初始数据) {
