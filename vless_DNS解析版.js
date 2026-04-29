@@ -64,7 +64,7 @@ async function 启动传输管道(WS接口, request) {
 					首包数据 = false;
 					await 解析VL标头(event.data, request);
 				} else { await 传输数据.write(event.data); }
-			} catch (error) { console.log(error.message); WS接口?.close(1000, error.message) }
+			} catch (error) { console.log(error.message); }
 		});
 	});
 	async function 解析VL标头(VL数据, request) {
@@ -90,7 +90,7 @@ async function 启动传输管道(WS接口, request) {
 		for (const { hostname, port } of 目标集) {// 目标集的定制可实现固定IP功能
 			try {
 				TCP接口 = connect({ hostname, port });
-				await Promise.race([TCP接口.connected‌, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 2000))]);
+				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1500))]);
 				const 项 = 反代MAP.get(hostname);
 				if (项?.失败次数 > 0) 项.失败次数 = 0;
 				连接成功 = true;
@@ -102,7 +102,7 @@ async function 启动传输管道(WS接口, request) {
 				}
 			}
 		}
-		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port} - ${目标集.length}`);
+		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port} - 目标集长度：${目标集.length}`);
 		建立传输管道(VL数据.slice(地址索引 + 长度));
 	}
 	async function 建立传输管道(写入初始数据) {
