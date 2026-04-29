@@ -570,7 +570,7 @@
 <body>
     <div class="container">
         <h1>链接管理器</h1>
-        <p class="subtitle">管理您的短链接，支持文本、跳转和代理三种类型。⚠ 注意：误操作变更了链接，不要保存，重新加载即可</p>
+        <p class="subtitle">管理您的短链接，支持文本、跳转和拼接三种类型。⚠ 注意：误操作变更了链接，不要保存，重新加载即可</p>
         <div class="controls">
             <div class="controls-left">
                 <input type="text" id="apiKeyInput" class="api-input" placeholder="输入API_KEY" />
@@ -631,8 +631,8 @@
                 </div>
                 <div class="guide-item">
                     <h3><span class="type-concat">拼接</span> <i class="fas fa-share"></i></h3>
-                    <p>由服务器爬取多个目标页面内容合并后发给用户。适合需要获取远程内容的场景</p>
-                    <p>以`#`开头的行可以中文备注说明，不会被爬取</p>
+                    <p>由服务器爬取多个目标页面内容，先试着Base64解码，然后合并发给用户。可合并多个订阅链接</p>
+                    <p>以`#`开头的行是注释说明，不会被爬取</p>
                     <p>爬取时支持`_ua`参数</p>
                 </div>
             </div>

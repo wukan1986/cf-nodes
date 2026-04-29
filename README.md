@@ -134,22 +134,23 @@ http-server
 
 `edgetunnel`和`cfnew`有对`DNS`覆写的功能，但改`yaml`实在麻烦，还是交给各客户端软件的覆写吧
 
-### 检查浏览器ECH是否开启
-https://www.cloudflare-cn.com/ssl/encrypted-sni/#results
-
 ### 浏览器ECH设置教程
 https://zhuanlan.zhihu.com/p/3739662610
 
-## 如何自建节点
+### 检查浏览器ECH是否开启(需使用TUN模式)
+https://www.cloudflare-cn.com/ssl/encrypted-sni/#results
+
+
+## 如何自建CF节点/ProxyIP节点
 参考`自建节点指南.md`
 
 ## 参考学习
 1. [cmliu/edgetunnel](https://github.com/cmliu/edgetunnel)
 2. [byJoey/cfnew](https://github.com/byJoey/cfnew)
-3. [hc990275/sub](https://github.com/hc990275/sub)
-4. [alienwaregf/Cloudflare-Country-Specific-IP-Filter](https://github.com/alienwaregf/Cloudflare-Country-Specific-IP-Filter)
-5. [DaBoWin/cfssclash](https://github.com/DaBoWin/cfssclash)
-6. [yonggekkk/Cloudflare-vless-trojan](https://github.com/yonggekkk/Cloudflare-vless-trojan)
+3. [yonggekkk/Cloudflare-vless-trojan](https://github.com/yonggekkk/Cloudflare-vless-trojan)
+4. [hc990275/sub](https://github.com/hc990275/sub)
+5. [alienwaregf/Cloudflare-Country-Specific-IP-Filter](https://github.com/alienwaregf/Cloudflare-Country-Specific-IP-Filter)
+6. [DaBoWin/cfssclash](https://github.com/DaBoWin/cfssclash)
 7. [Cloudflare EDT 导航](https://bestcf.pages.dev/)
 
 
