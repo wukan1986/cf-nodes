@@ -137,7 +137,7 @@ http-server
 ### 浏览器ECH设置教程
 https://zhuanlan.zhihu.com/p/3739662610
 
-### 检查浏览器ECH是否开启(需使用TUN模式)
+### 检查浏览器ECH是否开启
 https://www.cloudflare-cn.com/ssl/encrypted-sni/#results
 
 
