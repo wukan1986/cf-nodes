@@ -71,7 +71,6 @@ async function 启动传输管道(WS接口, request) {
 		if (VL数据.byteLength < 24) return;
 		if (!check_uuid(_UUID, VL数据.slice(1, 17))) { throw new Error('密钥验证失败'); }
 		await 查询DNS(request); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
-
 		const 获取数据定位 = new Uint8Array(VL数据)[17];
 		const 提取端口索引 = 18 + 获取数据定位 + 1;
 		const 建立端口缓存 = VL数据.slice(提取端口索引, 提取端口索引 + 2);
@@ -86,10 +85,9 @@ async function 启动传输管道(WS接口, request) {
 			case 3: 长度 = 16; const dataView = new DataView(VL数据.slice(地址索引, 地址索引 + 长度)); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
 			default: throw new Error(`地址类型错误：${识别地址类型}`);
 		}
-		const 目标集 = [{ hostname, port }];
-		Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).forEach(([ip, { 端口, 失败次数 }]) => { 目标集.push({ hostname: ip, port: 端口 || port }); });
+		const 目标集 = [{ hostname, port }, ...Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).map(([ip, { 端口, 失败次数 }]) => ({ hostname: ip, port: 端口 || port }))];
 		let 连接成功 = false;
-		for (const { hostname, port } of 目标集) {
+		for (const { hostname, port } of 目标集) {// 目标集的定制可实现固定IP功能
 			try {
 				TCP接口 = connect({ hostname, port });
 				await Promise.race([TCP接口.connected‌, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 2000))]);
@@ -104,7 +102,7 @@ async function 启动传输管道(WS接口, request) {
 				}
 			}
 		}
-		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port}`);
+		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port} - ${目标集.length}`);
 		建立传输管道(VL数据.slice(地址索引 + 长度));
 	}
 	async function 建立传输管道(写入初始数据) {
