@@ -604,8 +604,13 @@ async function handle_s(url, request, env) {
 			const data = [];
 			for (const result of results) {
 				if (result.status === 'fulfilled') {
-					// 请求成功
-					data.push(await result.value.text());
+					const txt = await result.value.text();
+					try {
+						data.push(atob(txt)); // 拼接前先解码
+					} catch (e) {
+						// 请求成功
+						data.push(txt);
+					}
 				} else {
 					// 请求失败，可记录日志或放入占位符
 					console.error('Fetch failed:', result.reason);
@@ -1196,4 +1201,3 @@ export default {
 		}
 	},
 };
-
