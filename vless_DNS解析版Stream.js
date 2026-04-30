@@ -40,7 +40,7 @@ async function 查询DNS(request) {
 }
 async function 升级WS请求(request) {
 	const [客户端, WS接口] = Object.values(new WebSocketPair());
-	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; WS接口.send(new Uint8Array([0, 0])); 启动传输管道(WS接口, request);
+	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; WS接口.send(new Uint8Array([0, 0]).buffer); 启动传输管道(WS接口, request);
 	return new Response(null, { status: 101, webSocket: 客户端 });
 }
 async function 启动传输管道(WS接口, request) {
@@ -60,16 +60,17 @@ async function 启动传输管道(WS接口, request) {
 	).catch(close);
 	async function 解析VL标头(VL数据, request) {
 		if (VL数据.byteLength < 24) return;
-		if (!check_uuid(UUID, VL数据.slice(1, 17))) { throw new Error('密钥验证失败'); }
+		const V = new Uint8Array(VL数据);
+		if (!check_uuid(UUID, V.subarray(1, 17))) { throw new Error('密钥验证失败'); }
 		const IPs = await 查询DNS(request); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
-		const 提取端口索引 = 18 + new DataView(VL数据).getUint8(17) + 1; // 跳过了cmd
-		const port = new DataView(VL数据.slice(提取端口索引, 提取端口索引 + 2)).getUint16(0);
+		const 提取端口索引 = 18 + V[17] + 1; // 跳过了cmd
+		const port = new DataView(VL数据, 提取端口索引, 2).getUint16(0);
 		const 提取地址索引 = 提取端口索引 + 2;
 		let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1, 连接成功 = false;
-		switch (new DataView(VL数据.slice(提取地址索引, 提取地址索引 + 1)).getUint8(0)) {
-			case 1: 长度 = 4; hostname = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 长度)).join('.'); break;
-			case 2: 长度 = new DataView(VL数据.slice(地址索引, 地址索引 + 1)).getUint8(0); 地址索引 += 1; hostname = new TextDecoder().decode(VL数据.slice(地址索引, 地址索引 + 长度)); break;
-			case 3: 长度 = 16; const dataView = new DataView(VL数据.slice(地址索引, 地址索引 + 长度)); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
+		switch (V[提取地址索引]) {
+			case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
+			case 2: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
+			case 3: 长度 = 16; const dataView = new DataView(VL数据, 地址索引, 长度); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
 			default: throw new Error(`地址类型错误`);
 		}
 		const 目标集 = [{ hostname, port }, ...Array.from(IPs.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).map(([ip, { 端口, 失败次数 }]) => ({ hostname: ip, port: 端口 || port }))];
@@ -84,11 +85,11 @@ async function 启动传输管道(WS接口, request) {
 			}
 		}
 		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port} - 目标集长度：${目标集.length}`);
-		建立传输管道(VL数据.slice(地址索引 + 长度));
+		建立传输管道(V.subarray(地址索引 + 长度));
 	}
 	async function 建立传输管道(写入初始数据) {
 		传输数据 = TCP接口.writable.getWriter();
-		if (写入初始数据?.byteLength > 0) { await 传输数据.write(写入初始数据); }
+		if (写入初始数据.length > 0) { await 传输数据.write(写入初始数据); }
 		await TCP接口.readable.pipeTo(
 			new WritableStream({
 				write(chunk) { (WS接口.readyState === WebSocket.OPEN) && WS接口.send(chunk); },
