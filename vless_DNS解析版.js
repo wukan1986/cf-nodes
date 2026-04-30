@@ -9,8 +9,7 @@ export default {
 async function 查询DNS(request) {
 	if (正在刷新) return;
 	const url = new URL(request.url);
-	const ips = url.searchParams.getAll('ip');
-	if (ips.length === 0) return;
+	const ips = url.searchParams.getAll('ip'); if (ips.length === 0) return;
 	const 当前时间 = new Date();
 	let 分钟差 = (当前时间.getTime() - 缓存时间.getTime()) / 60000;
 	const reset = url.searchParams.get('reset'); // 如果不设重置码，长时间后，只有池中数据不多时才刷新
@@ -29,13 +28,11 @@ async function 查询DNS(request) {
 			const u = new URL('url://' + ip.replace('colo', request.cf.colo).toLowerCase());
 			try {
 				if (isIP(u.hostname)) {
-					console.log(u.hostname, '直接记录DNS缓存');
-					反代MAP.delete(u.hostname); 反代MAP.set(u.hostname, { 端口: +u.port, 失败次数: -1 }); // 通过删除移动到最后
+					console.log(u.hostname, '直接记录DNS缓存'); 反代MAP.delete(u.hostname); 反代MAP.set(u.hostname, { 端口: +u.port, 失败次数: -1 }); // 通过删除移动到最后
 				} else {
 					console.log(u.hostname, '正在刷新DNS缓存...');
 					const dnsRecords = (await Promise.all([
-						getDnsRecord(u.hostname, 'A'),
-						getDnsRecord(u.hostname, 'AAAA').then(rr => rr.map(r => `[${r}]`)),
+						getDnsRecord(u.hostname, 'A'), getDnsRecord(u.hostname, 'AAAA').then(rr => rr.map(r => `[${r}]`)),
 					])).flat().sort(() => Math.random() - 0.5);
 					dnsRecords.forEach(ip => 反代MAP.has(ip) || 反代MAP.set(ip, { 端口: +u.port, 失败次数: 0 }));
 					console.log(u.hostname, 'DNS缓存刷新完成', '新IP数量:', dnsRecords.length, '共缓存IP数量:', 反代MAP.size);
@@ -69,7 +66,7 @@ async function 启动传输管道(WS接口, request) {
 		const 提取端口索引 = 18 + new DataView(VL数据).getUint8(17) + 1; // 跳过了cmd
 		const port = new DataView(VL数据.slice(提取端口索引, 提取端口索引 + 2)).getUint16(0);
 		const 提取地址索引 = 提取端口索引 + 2;
-		let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
+		let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1, 连接成功 = false;
 		switch (new DataView(VL数据.slice(提取地址索引, 提取地址索引 + 1)).getUint8(0)) {
 			case 1: 长度 = 4; hostname = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 长度)).join('.'); break;
 			case 2: 长度 = new DataView(VL数据.slice(地址索引, 地址索引 + 1)).getUint8(0); 地址索引 += 1; hostname = new TextDecoder().decode(VL数据.slice(地址索引, 地址索引 + 长度)); break;
@@ -77,15 +74,12 @@ async function 启动传输管道(WS接口, request) {
 			default: throw new Error(`地址类型错误`);
 		}
 		const 目标集 = [{ hostname, port }, ...Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).map(([ip, { 端口, 失败次数 }]) => ({ hostname: ip, port: 端口 || port }))];
-		let 连接成功 = false;
 		for (const { hostname, port } of 目标集) {// 目标集的定制可实现固定IP功能
 			const 项 = 反代MAP.get(hostname);
 			try {
 				TCP接口 = connect({ hostname, port });
 				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1500))]);
-				if (项?.失败次数 > 0) 项.失败次数 = 0;
-				连接成功 = true;
-				break;
+				连接成功 = true; if (项?.失败次数 > 0) 项.失败次数 = 0; break;
 			} catch (连接错误) {
 				if (项 && 项.失败次数 >= 0 && ++项.失败次数 >= 10) { 反代MAP.delete(hostname); console.log("多次连接失败，删除反代:", hostname); }
 			}
@@ -116,8 +110,7 @@ async function getDnsRecord(domain, type) {
 			const data = await fetch(api, { headers: { 'Accept': 'application/dns-json' }, signal: AbortSignal.timeout(3000) }).then(r => r.json());
 			if (data.Answer) {
 				const type = Array.isArray(data.Question) ? data.Question[0]?.type : data.Question?.type;
-				const ips = data.Answer.filter(r => r.type === type).map(r => r.data);
-				if (ips.length > 0) { return ips; }
+				const ips = data.Answer.filter(r => r.type === type).map(r => r.data); if (ips.length > 0) { return ips; }
 			}
 		} catch (err) { }
 	}
@@ -125,8 +118,4 @@ async function getDnsRecord(domain, type) {
 }
 const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16));
 const _UUID = uuidToArray(必定要修改VL密钥);
-const check_uuid = (a, b) => {
-	const x = new Uint8Array(a); const y = new Uint8Array(b);
-	for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; }
-	return true;
-};
+const check_uuid = (a, b) => { const x = new Uint8Array(a); const y = new Uint8Array(b); for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; } return true; };
