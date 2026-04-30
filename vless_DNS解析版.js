@@ -49,57 +49,45 @@ async function 查询DNS(request) {
 }
 async function 升级WS请求(request) {
 	const [客户端, WS接口] = Object.values(new WebSocketPair());
-	WS接口.accept();
-	WS接口.binaryType = 'arraybuffer';
-	WS接口.send(new Uint8Array([0, 0]));
-	启动传输管道(WS接口, request);
+	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; WS接口.send(new Uint8Array([0, 0])); 启动传输管道(WS接口, request);
 	return new Response(null, { status: 101, webSocket: 客户端 });
 }
 async function 启动传输管道(WS接口, request) {
 	let TCP接口, 传输数据, 首包数据 = true, 处理队列 = Promise.resolve();
+	const close = (err) => { console.log(err); try { TCP接口?.close(); } catch { } try { WS接口.close(); } catch { } };
 	WS接口.addEventListener('message', (event) => {
 		处理队列 = 处理队列.then(async () => {
-			try {
-				if (首包数据) {
-					首包数据 = false;
-					await 解析VL标头(event.data, request);
-				} else { await 传输数据.write(event.data); }
-			} catch (error) { console.log(error.message); }
-		});
+			if (首包数据) {
+				首包数据 = false; await 解析VL标头(event.data, request);
+			} else { await 传输数据.write(event.data); }
+		}).catch(close);
 	});
 	async function 解析VL标头(VL数据, request) {
 		if (VL数据.byteLength < 24) return;
 		if (!check_uuid(_UUID, VL数据.slice(1, 17))) { throw new Error('密钥验证失败'); }
 		await 查询DNS(request); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
-		const 获取数据定位 = new Uint8Array(VL数据)[17];
-		const 提取端口索引 = 18 + 获取数据定位 + 1;
-		const 建立端口缓存 = VL数据.slice(提取端口索引, 提取端口索引 + 2);
-		const port = new DataView(建立端口缓存).getUint16(0);
+		const 提取端口索引 = 18 + new DataView(VL数据).getUint8(17) + 1; // 跳过了cmd
+		const port = new DataView(VL数据.slice(提取端口索引, 提取端口索引 + 2)).getUint16(0);
 		const 提取地址索引 = 提取端口索引 + 2;
-		const 建立地址缓存 = new Uint8Array(VL数据.slice(提取地址索引, 提取地址索引 + 1));
-		const 识别地址类型 = 建立地址缓存[0];
 		let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
-		switch (识别地址类型) {
+		switch (new DataView(VL数据.slice(提取地址索引, 提取地址索引 + 1)).getUint8(0)) {
 			case 1: 长度 = 4; hostname = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 长度)).join('.'); break;
-			case 2: 长度 = new Uint8Array(VL数据.slice(地址索引, 地址索引 + 1))[0]; 地址索引 += 1; hostname = new TextDecoder().decode(VL数据.slice(地址索引, 地址索引 + 长度)); break;
+			case 2: 长度 = new DataView(VL数据.slice(地址索引, 地址索引 + 1)).getUint8(0); 地址索引 += 1; hostname = new TextDecoder().decode(VL数据.slice(地址索引, 地址索引 + 长度)); break;
 			case 3: 长度 = 16; const dataView = new DataView(VL数据.slice(地址索引, 地址索引 + 长度)); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
-			default: throw new Error(`地址类型错误：${识别地址类型}`);
+			default: throw new Error(`地址类型错误`);
 		}
 		const 目标集 = [{ hostname, port }, ...Array.from(反代MAP.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).map(([ip, { 端口, 失败次数 }]) => ({ hostname: ip, port: 端口 || port }))];
 		let 连接成功 = false;
 		for (const { hostname, port } of 目标集) {// 目标集的定制可实现固定IP功能
+			const 项 = 反代MAP.get(hostname);
 			try {
 				TCP接口 = connect({ hostname, port });
 				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1500))]);
-				const 项 = 反代MAP.get(hostname);
 				if (项?.失败次数 > 0) 项.失败次数 = 0;
 				连接成功 = true;
 				break;
 			} catch (连接错误) {
-				const 项 = 反代MAP.get(hostname);
-				if (项 && 项.失败次数 >= 0 && ++项.失败次数 >= 10) {
-					反代MAP.delete(hostname); console.log("多次连接失败，删除反代:", hostname);
-				}
+				if (项 && 项.失败次数 >= 0 && ++项.失败次数 >= 10) { 反代MAP.delete(hostname); console.log("多次连接失败，删除反代:", hostname); }
 			}
 		}
 		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port} - 目标集长度：${目标集.length}`);
@@ -107,10 +95,10 @@ async function 启动传输管道(WS接口, request) {
 	}
 	async function 建立传输管道(写入初始数据) {
 		传输数据 = TCP接口.writable.getWriter();
-		if (写入初始数据 && 写入初始数据.byteLength > 0) { await 传输数据.write(写入初始数据); }
+		if (写入初始数据?.byteLength > 0) { await 传输数据.write(写入初始数据); }
 		await TCP接口.readable.pipeTo(
 			new WritableStream({
-				write(chunk) { if (WS接口.readyState === WebSocket.OPEN) WS接口.send(chunk); },
+				write(chunk) { (WS接口.readyState === WebSocket.OPEN) && WS接口.send(chunk); },
 			}),
 		);
 	}
@@ -121,7 +109,7 @@ const isIP = (ip) => /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) || ip.startsWith('[');
 async function getDnsRecord(domain, type) {
 	const apis = [
 		`https://cloudflare-dns.com/dns-query?name=${domain}&type=${type}`, `https://dns.google/resolve?name=${domain}&type=${type}`,
-		`https://223.5.5.5/resolve?name=${domain}&type=${type}`,
+		`https://223.5.5.5/resolve?name=${domain}&type=${type}`, // 仅阿里Question是{}不是[]
 	];
 	for (const api of apis) {
 		try {
