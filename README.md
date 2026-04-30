@@ -152,6 +152,7 @@ https://www.cloudflare-cn.com/ssl/encrypted-sni/#results
 5. [alienwaregf/Cloudflare-Country-Specific-IP-Filter](https://github.com/alienwaregf/Cloudflare-Country-Specific-IP-Filter)
 6. [DaBoWin/cfssclash](https://github.com/DaBoWin/cfssclash)
 7. [Cloudflare EDT 导航](https://bestcf.pages.dev/)
+8. [ToiCF/CF-Workers-TOR](https://github.com/ToiCF/CF-Workers-TOR)
 
 
 感谢各位大佬提供的代码和服务
