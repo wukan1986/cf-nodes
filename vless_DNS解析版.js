@@ -1,8 +1,11 @@
-﻿const 必定要修改VL密钥 = '12345678-1234-1234-1234-123456789012';
+﻿const 设置变量和机密UUID优先级高于这 = '12345678-1234-1234-1234-123456789012';
 
 export default {
-	async fetch(request) {
-		if (request.headers.get('Upgrade') === 'websocket') { return await 升级WS请求(request); }
+	async fetch(request, env) {
+		if (request.headers.get('Upgrade') === 'websocket') {
+			if (!UUID) { UUID = uuidToArray(env.UUID || 设置变量和机密UUID优先级高于这); }
+			return await 升级WS请求(request);
+		}
 		return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 	},
 };
@@ -26,7 +29,7 @@ async function 查询DNS(request) {
 						getDnsRecord(u.hostname, 'A'), getDnsRecord(u.hostname, 'AAAA').then(rr => rr.map(r => `[${r}]`)),
 					])).flat().sort(() => Math.random() - 0.5);
 					dnsRecords.forEach(ip => IPs.has(ip) || IPs.set(ip, { 端口: +u.port, 失败次数: 0 }));
-					console.log(u.hostname, 'DNS缓存刷新完成', '新IP数量:', dnsRecords.length, '共缓存IP数量:', cache.IPs.size);
+					console.log(u.hostname, 'DNS缓存刷新完成', '新IP数量:', dnsRecords.length, '共缓存IP数量:', IPs.size);
 				}
 			} catch (error) { console.error(u.hostname, '刷新DNS缓存失败', error); }
 		}
@@ -52,7 +55,7 @@ async function 启动传输管道(WS接口, request) {
 	});
 	async function 解析VL标头(VL数据, request) {
 		if (VL数据.byteLength < 24) return;
-		if (!check_uuid(_UUID, VL数据.slice(1, 17))) { throw new Error('密钥验证失败'); }
+		if (!check_uuid(UUID, VL数据.slice(1, 17))) { throw new Error('密钥验证失败'); }
 		const IPs = await 查询DNS(request); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
 		const 提取端口索引 = 18 + new DataView(VL数据).getUint8(17) + 1; // 跳过了cmd
 		const port = new DataView(VL数据.slice(提取端口索引, 提取端口索引 + 2)).getUint16(0);
@@ -70,7 +73,7 @@ async function 启动传输管道(WS接口, request) {
 			try {
 				TCP接口 = connect({ hostname, port });// console.log("目标", hostname, port);
 				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1500))]);
-				连接成功 = true; if (项?.失败次数 > 0) 项.失败次数 = 0; break;
+				连接成功 = true; if (项?.失败次数 > 0) { 项.失败次数 = 0; } break;
 			} catch (连接错误) {// console.log("删除反代:", hostname, 目标集);
 				if (项 && 项.失败次数 >= 0 && ++项.失败次数 >= 10) { IPs.delete(hostname); console.log("多次连接失败，删除反代:", hostname); }
 			}
@@ -88,7 +91,7 @@ async function 启动传输管道(WS接口, request) {
 		);
 	}
 }
-let 正在刷新 = false, cacheMap = new Map();
+let 正在刷新 = false, UUID = null, cacheMap = new Map();
 import { connect } from 'cloudflare:sockets';
 async function getDnsRecord(domain, type) {
 	const apis = [
@@ -109,4 +112,3 @@ class IPCache { constructor(search) { this.Search = search; this.Time = new Date
 const isIP = (ip) => /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) || ip.startsWith('[');
 const check_uuid = (a, b) => { const x = new Uint8Array(a); const y = new Uint8Array(b); for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; } return true; };
 const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16));
-const _UUID = uuidToArray(必定要修改VL密钥);
