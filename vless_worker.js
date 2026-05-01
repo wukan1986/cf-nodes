@@ -83,11 +83,11 @@ async function 查询反代IP(url, colo) {
 	if (IPs.size >= 30 || 分钟差 <= 10) return IPs; // 有效缓存太多，或时间太近都不查询
 	正在刷新 = true; console.log('初始 IP总量:', IPs.size);
 	try {
-		(await params_A_AAAA(url.searchParams, 'AAAA', colo)).map(({hostname, port}) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('AAAA=IP总量:', IPs.size);
-		(await params_A_AAAA(url.searchParams, 'A', colo)).map(({hostname, port}) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('A=IP总量:', IPs.size);
-		(await params_TXT(url.searchParams)).map(({hostname, port}) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('TXT=IP总量:', IPs.size);
-		(await params_url(url.searchParams)).map(({hostname, port}) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('url=IP总量:', IPs.size);
-		(await params_ip(url.searchParams)).map(({hostname, port}) => { IPs.set(hostname, { 端口: port, 失败次数: -1 }) }); console.log('ip=IP数量:', IPs.size);
+		(await params_A_AAAA(url.searchParams, 'AAAA', colo)).map(({ hostname, port }) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('AAAA=IP总量:', IPs.size);
+		(await params_A_AAAA(url.searchParams, 'A', colo)).map(({ hostname, port }) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('A=IP总量:', IPs.size);
+		(await params_TXT(url.searchParams)).map(({ hostname, port }) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('TXT=IP总量:', IPs.size);
+		(await params_url(url.searchParams)).map(({ hostname, port }) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('url=IP总量:', IPs.size);
+		(await params_ip(url.searchParams)).map(({ hostname, port }) => { IPs.set(hostname, { 端口: port, 失败次数: -1 }) }); console.log('ip=IP数量:', IPs.size);
 	}
 	catch (error) { console.warn('反代解析失败', error); }
 	finally { console.log('IP', IPs); cache.Time = new Date(); 正在刷新 = false; } return IPs;
@@ -103,7 +103,7 @@ async function getDnsRecord(domain, type) {
 	}
 	return [];
 }
-function ip_to_obj(ip, port) {ip = ip.trim(); if (/.*:.*:.*/.test(ip)) ip = `[${ip}]`; const u = new URL('url://' + ip); return { hostname: u.hostname, port: +u.port || port }; }
+function ip_to_obj(ip, port) { ip = ip.trim(); if (/.*:.*:.*/.test(ip)) ip = `[${ip}]`; const u = new URL('url://' + ip); return { hostname: u.hostname, port: +(u.port || port) }; }
 async function dns_ip(domain, type, colo = 'colo') { const u = new URL('url://' + domain.replace('colo', colo).toLowerCase()); return (await getDnsRecord(u.hostname, type)).map(ip => ip_to_obj(ip, u.port)) }
 async function dns_txt(domain, type) { const u = new URL('url://' + domain); const txt = (await getDnsRecord(u.hostname, type))[0]; return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
 async function url_txt(url) { const u = new URL(url); const txt = await fetch(u.href, { signal: AbortSignal.timeout(2000) }).then(r => r.text()); return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
