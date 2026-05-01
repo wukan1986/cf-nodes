@@ -25,7 +25,7 @@ async function 启动传输管道(WS接口, request) {
 		async write(chunk) {
 			if (首包数据) {
 				首包数据 = false; await 解析VL标头(chunk, request);
-			} else { await 传输数据.write(chunk); }
+			} else { if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
 		},
 	}),
 	).catch(close);
