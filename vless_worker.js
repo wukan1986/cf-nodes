@@ -103,7 +103,7 @@ async function getDnsRecord(domain, type) {
 	}
 	return [];
 }
-function ip_to_obj(ip, port) { console.log(port); ip = ip.trim(); if (/.*:.*:.*/.test(ip)) ip = `[${ip}]`; const u = new URL('url://' + ip); return { hostname: u.hostname, port: +u.port || port }; }
+function ip_to_obj(ip, port) {ip = ip.trim(); if (/.*:.*:.*/.test(ip)) ip = `[${ip}]`; const u = new URL('url://' + ip); return { hostname: u.hostname, port: +u.port || port }; }
 async function dns_ip(domain, type, colo = 'colo') { const u = new URL('url://' + domain.replace('colo', colo).toLowerCase()); return (await getDnsRecord(u.hostname, type)).map(ip => ip_to_obj(ip, u.port)) }
 async function dns_txt(domain, type) { const u = new URL('url://' + domain); const txt = (await getDnsRecord(u.hostname, type))[0]; return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
 async function url_txt(url) { const u = new URL(url); const txt = await fetch(u.href, { signal: AbortSignal.timeout(2000) }).then(r => r.text()); return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
