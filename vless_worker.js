@@ -31,8 +31,10 @@ async function 启动传输管道(WS接口, request) {
 	).catch(close);
 	async function 解析VL标头(VL数据, request) {
 		const { hostname, port, data } = addr(VL数据);
-		const IPs = await 查询DNS(request); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
-		const 目标集 = [{ hostname, port }, ...Array.from(IPs.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).map(([ip, { 端口, 失败次数 }]) => ({ hostname: ip, port: 端口 || port }))];
+		const url = new URL(request.url);
+		const IPs = await 查询反代IP(url, request.cf.colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
+		let 目标集 = [{ hostname, port }, ...Array.from(IPs.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).map(([ip, { 端口, 失败次数 }]) => ({ hostname: ip, port: 端口 || port }))];
+		const skip = url.searchParams.get('skip') === 'true'; if (skip) 目标集 = 目标集.slice(1);
 		let 连接成功 = false;
 		for (const { hostname, port } of 目标集) {// 目标集的定制可实现固定IP功能
 			const 项 = IPs.get(hostname);
@@ -73,52 +75,43 @@ function addr(VL数据) {
 	}
 	return { hostname, port, data: V.subarray(地址索引 + 长度) };
 }
-async function 查询DNS(request) {
-	const url = new URL(request.url); const search = url.search;
+async function 查询反代IP(url, colo) {
+	const search = url.search;
 	let cache = cacheMap.get(search); if (!cache) { cache = new IPCache(search); cacheMap.set(search, cache); }
 	const IPs = cache.IPs; if (正在刷新) return IPs;
-	const ips = url.searchParams.getAll('ip'); if (ips.length === 0) return IPs;
 	const 当前时间 = new Date(); const 分钟差 = (当前时间.getTime() - cache.Time.getTime()) / 60000;
 	if (IPs.size >= 30 || 分钟差 <= 10) return IPs; // 有效缓存太多，或时间太近都不查询
-	正在刷新 = true;
+	正在刷新 = true; console.log('初始 IP总量:', IPs.size);
 	try {
-		for (const ip of ips) {
-			const u = new URL('url://' + ip.replace('colo', request.cf.colo).toLowerCase());
-			try {
-				if (isIP(u.hostname)) {
-					console.log(u.hostname, '直接记录DNS缓存'); IPs.delete(u.hostname); IPs.set(u.hostname, { 端口: +u.port, 失败次数: -1 }); // 通过删除移动到最后
-				} else {
-					console.log(u.hostname, '正在刷新DNS缓存...');
-					const dnsRecords = (await Promise.all([
-						getDnsRecord(u.hostname, 'A'), getDnsRecord(u.hostname, 'AAAA').then(rr => rr.map(r => `[${r}]`)),
-					])).flat().sort(() => Math.random() - 0.5);
-					dnsRecords.forEach(ip => IPs.has(ip) || IPs.set(ip, { 端口: +u.port, 失败次数: 0 }));
-					console.log(u.hostname, 'DNS缓存刷新完成', '新IP数量:', dnsRecords.length, '共缓存IP数量:', IPs.size);
-				}
-			} catch (error) { console.error(u.hostname, '刷新DNS缓存失败', error); }
-		}
-		cache.Time = new Date();
+		(await params_A_AAAA(url.searchParams, 'AAAA', colo)).map(({hostname, port}) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('AAAA=IP总量:', IPs.size);
+		(await params_A_AAAA(url.searchParams, 'A', colo)).map(({hostname, port}) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('A=IP总量:', IPs.size);
+		(await params_TXT(url.searchParams)).map(({hostname, port}) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('TXT=IP总量:', IPs.size);
+		(await params_url(url.searchParams)).map(({hostname, port}) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('url=IP总量:', IPs.size);
+		(await params_ip(url.searchParams)).map(({hostname, port}) => { IPs.set(hostname, { 端口: port, 失败次数: -1 }) }); console.log('ip=IP数量:', IPs.size);
 	}
-	catch (error) { console.error('DNS解析失败', error); }
-	finally { 正在刷新 = false; } return IPs;
+	catch (error) { console.warn('反代解析失败', error); }
+	finally { console.log('IP', IPs); cache.Time = new Date(); 正在刷新 = false; } return IPs;
 }
 async function getDnsRecord(domain, type) {
-	const apis = [
-		`https://cloudflare-dns.com/dns-query?name=${domain}&type=${type}`, `https://dns.google/resolve?name=${domain}&type=${type}`,
-		`https://223.5.5.5/resolve?name=${domain}&type=${type}`, // 仅阿里Question是{}不是[]
-	];
+	const apis = [`https://cloudflare-dns.com/dns-query?name=${domain}&type=${type}`, `https://dns.google/resolve?name=${domain}&type=${type}`, `https://223.5.5.5/resolve?name=${domain}&type=${type}`,]; // 仅阿里Question是{}不是[]
 	for (const api of apis) {
 		try {
-			const data = await fetch(api, { headers: { 'Accept': 'application/dns-json' }, signal: AbortSignal.timeout(2000) }).then(r => r.json());
-			if (!data.Answer) continue;
+			const data = await fetch(api, { headers: { 'Accept': 'application/dns-json' }, signal: AbortSignal.timeout(2000) }).then(r => r.json()); if (!data.Answer) continue;
 			const type = Array.isArray(data.Question) ? data.Question[0]?.type : data.Question?.type;
 			const ips = data.Answer.filter(r => r.type === type).map(r => r.data); if (ips.length > 0) { return ips; }
-		} catch (err) { }
+		} catch { }
 	}
 	return [];
 }
+function ip_to_obj(ip, port) { console.log(port); ip = ip.trim(); if (/.*:.*:.*/.test(ip)) ip = `[${ip}]`; const u = new URL('url://' + ip); return { hostname: u.hostname, port: +u.port || port }; }
+async function dns_ip(domain, type, colo = 'colo') { const u = new URL('url://' + domain.replace('colo', colo).toLowerCase()); return (await getDnsRecord(u.hostname, type)).map(ip => ip_to_obj(ip, u.port)) }
+async function dns_txt(domain, type) { const u = new URL('url://' + domain); const txt = (await getDnsRecord(u.hostname, type))[0]; return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
+async function url_txt(url) { const u = new URL(url); const txt = await fetch(u.href, { signal: AbortSignal.timeout(2000) }).then(r => r.text()); return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
+async function params_ip(searchParams) { return searchParams.getAll('ip').map(ip => ip_to_obj(ip, 0)); }
+async function params_A_AAAA(searchParams, type, colo) { return (await Promise.all(searchParams.getAll(type).map(r => dns_ip(r, type, colo)))).flat(); }
+async function params_TXT(searchParams) { return (await Promise.all(searchParams.getAll('TXT').map(r => dns_txt(r, 'TXT')))).flat(); }
+async function params_url(searchParams) { return (await Promise.all(searchParams.getAll('url').map(r => url_txt(r)))).flat(); }
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
-const isIP = (ip) => /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) || ip.startsWith('[');
 const check_uuid = (a, b) => { const x = new Uint8Array(a); const y = new Uint8Array(b); for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; } return true; };
 const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16));
 let 正在刷新 = false, UUID = null, cacheMap = new Map();
