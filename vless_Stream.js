@@ -38,7 +38,7 @@ async function 启动传输管道(WS接口, request) {
 			const 项 = IPs.get(hostname);
 			try {
 				TCP接口 = connect({ hostname, port });// console.log("目标", hostname, port);
-				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1500))]);
+				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1000))]);
 				连接成功 = true; if (项?.失败次数 > 0) { 项.失败次数 = 0; } break;
 			} catch (连接错误) {// console.log("删除反代:", hostname, 目标集);
 				if (项 && 项.失败次数 >= 0 && ++项.失败次数 >= 10) { IPs.delete(hostname); console.log("多次连接失败，删除反代:", hostname); }
@@ -109,7 +109,7 @@ async function getDnsRecord(domain, type) {
 	];
 	for (const api of apis) {
 		try {
-			const data = await fetch(api, { headers: { 'Accept': 'application/dns-json' }, signal: AbortSignal.timeout(3000) }).then(r => r.json());
+			const data = await fetch(api, { headers: { 'Accept': 'application/dns-json' }, signal: AbortSignal.timeout(2000) }).then(r => r.json());
 			if (!data.Answer) continue;
 			const type = Array.isArray(data.Question) ? data.Question[0]?.type : data.Question?.type;
 			const ips = data.Answer.filter(r => r.type === type).map(r => r.data); if (ips.length > 0) { return ips; }
