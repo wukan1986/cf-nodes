@@ -30,12 +30,15 @@ async function 启动传输管道(WS接口, request) {
 	}),
 	).catch(close);
 	async function 解析VL标头(VL数据, request) {
-		const { hostname, port, data } = addr(VL数据);
-		const url = new URL(request.url);
+		const { hostname, port, data, is_udp } = addr(VL数据);
+		const url = new URL(request.url); let 目标集 = DNS目标集; let 连接成功 = false;
 		const IPs = await 查询反代IP(url, request.cf.colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
-		let 目标集 = [{ hostname, port }, ...Array.from(IPs.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).map(([ip, { 端口, 失败次数 }]) => ({ hostname: ip, port: 端口 || port }))];
-		const skip = url.searchParams.get('skip') === 'true'; if (skip) 目标集 = 目标集.slice(1);
-		let 连接成功 = false;
+		if (is_udp) {
+			if (port !== 53) { throw new Error(`UDP请求只支持DNS解析`); }
+		} else {
+			目标集 = [{ hostname, port }, ...Array.from(IPs.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).map(([ip, { 端口, 失败次数 }]) => ({ hostname: ip, port: 端口 || port }))];
+			const skip = url.searchParams.get('skip') === 'true'; if (skip) 目标集 = 目标集.slice(1);
+		}
 		for (const { hostname, port } of 目标集) {// 目标集的定制可实现固定IP功能
 			const 项 = IPs.get(hostname);
 			try {
@@ -63,7 +66,7 @@ function addr(VL数据) {
 	if (VL数据.byteLength < 24) { throw new Error('数据长度不足'); }
 	const V = new Uint8Array(VL数据);
 	if (!check_uuid(UUID, V.subarray(1, 17))) { throw new Error('密钥验证失败'); }
-	const 提取命令索引 = 18 + V[17]; const cmd = V[提取命令索引]; if (cmd !== 1) { throw new Error('无效命令'); }
+	const 提取命令索引 = 18 + V[17]; const cmd = V[提取命令索引];
 	const 提取端口索引 = 提取命令索引 + 1; const port = new DataView(VL数据, 提取端口索引, 2).getUint16(0);
 	const 提取地址索引 = 提取端口索引 + 2; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
 	switch (V[提取地址索引]) {
@@ -72,7 +75,7 @@ function addr(VL数据) {
 		case 3: 长度 = 16; const dataView = new DataView(VL数据, 地址索引, 长度); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
 		default: throw new Error(`地址类型错误`);
 	}
-	return { hostname, port, data: V.subarray(地址索引 + 长度) };
+	return { hostname, port, data: V.subarray(地址索引 + 长度), is_udp: cmd === 2 };
 }
 async function 查询反代IP(url, colo) {
 	const search = url.search;
@@ -113,5 +116,5 @@ async function params_url(searchParams) { return (await Promise.all(searchParams
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
 const check_uuid = (a, b) => { const x = new Uint8Array(a); const y = new Uint8Array(b); for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; } return true; };
 const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16));
-let 正在刷新 = false, UUID = null, cacheMap = new Map();
+let 正在刷新 = false, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }];
 import { connect } from 'cloudflare:sockets';
