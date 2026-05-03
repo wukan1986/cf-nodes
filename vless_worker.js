@@ -63,10 +63,9 @@ function addr(VL数据) {
 	if (VL数据.byteLength < 24) { throw new Error('数据长度不足'); }
 	const V = new Uint8Array(VL数据);
 	if (!check_uuid(UUID, V.subarray(1, 17))) { throw new Error('密钥验证失败'); }
-	const 提取端口索引 = 18 + V[17] + 1; // 跳过了cmd
-	const port = new DataView(VL数据, 提取端口索引, 2).getUint16(0);
-	const 提取地址索引 = 提取端口索引 + 2;
-	let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
+	const 提取命令索引 = 18 + V[17]; const cmd = V[提取命令索引]; if (cmd !== 1) { throw new Error('无效命令'); }
+	const 提取端口索引 = 提取命令索引 + 1; const port = new DataView(VL数据, 提取端口索引, 2).getUint16(0);
+	const 提取地址索引 = 提取端口索引 + 2; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
 	switch (V[提取地址索引]) {
 		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
 		case 2: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
