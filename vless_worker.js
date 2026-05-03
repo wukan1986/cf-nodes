@@ -50,14 +50,14 @@ async function 启动传输管道(WS接口, request) {
 			}
 		}
 		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port} - 目标集长度：${目标集.length}`);
-		建立传输管道(data);
+		建立传输管道(data, is_udp);
 	}
-	async function 建立传输管道(写入初始数据) {
+	async function 建立传输管道(写入初始数据, is_dns) {
 		传输数据 = TCP接口.writable.getWriter();
-		if (写入初始数据.length > 0) { await 传输数据.write(写入初始数据); }
+		if (写入初始数据.length > 0) { await 传输数据.write(is_dns ? dnsUdpToTcp(写入初始数据) : 写入初始数据); }
 		await TCP接口.readable.pipeTo(
 			new WritableStream({
-				write(chunk) { (WS接口.readyState === WebSocket.OPEN) && WS接口.send(chunk); },
+				write(chunk) { (WS接口.readyState === WebSocket.OPEN) && WS接口.send(is_dns ? dnsTcpToUdp(chunk) : chunk); },
 			}),
 		);
 	}
@@ -116,5 +116,7 @@ async function params_url(searchParams) { return (await Promise.all(searchParams
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
 const check_uuid = (a, b) => { const x = new Uint8Array(a); const y = new Uint8Array(b); for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; } return true; };
 const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16));
+function dnsUdpToTcp(udp) { return new Uint8Array([udp.length >> 8, udp.length & 0xFF, ...udp]); }
+function dnsTcpToUdp(tcp) { return tcp.slice(2); } // DNS over TCP 功能一直未测试
 let 正在刷新 = false, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }];
 import { connect } from 'cloudflare:sockets';
