@@ -631,8 +631,9 @@
                 </div>
                 <div class="hint">
                     <ol>
-                        <li>目前的 转换服务(convert) 都丢失了ech信息，勾选后会由服务器抓取 转换服务 的结果，修补后返回用户</li>
-                        <li>部分节点开启ech反而无法联网</li>
+                        <li>目前 外部的转换服务(convert) 都丢失了ech信息，内置版没有这个问题</li>
+                        <li>开启ech后，`worker.dev`可以测试真连延迟，但更新订阅需要通过代理</li>
+                        <li>ech功能需要软件关闭`DNS覆写`。mihomo内核不能太低</li>
                     </ol>
                 </div>
             </div>

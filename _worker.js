@@ -1,5 +1,6 @@
 ﻿// ECH配置
 const ECH_SNI = "cloudflare-ech.com";
+const ECH_DNS = "https://dns.alidns.com/dns-query";
 
 // 提交到仓库时用
 const HOME_GITHUB = "https://raw.githubusercontent.com/wukan1986/cf-nodes-aggregator/main/home.html";
@@ -818,21 +819,11 @@ function VlessTrojanAnytlsHysteria2ToClash(vlessUrl, options = {}) {
 			// 解码 URL 编码的参数
 			const decodedEch = decodeURIComponent(echParam);
 
-			// 提取 query_server_name (ECH 配置的第一部分)
-			let queryServerName = decodedEch;
-
-			// 处理多种分隔符格式
-			if (decodedEch.includes('+')) {
-				queryServerName = decodedEch.split('+')[0];
-			} else if (decodedEch.includes('%2B')) {
-				queryServerName = decodedEch.split('%2B')[0];
-			} else if (decodedEch.includes(' ')) {
-				queryServerName = decodedEch.split(' ')[0];
-			}
+			const [queryServerName, ech_dns = ''] = decodedEch.split(/[\+\s]|%2B/);
 
 			node['ech-opts'] = {
 				enable: true,
-				"query-server-name": queryServerName
+				"query-server-name": queryServerName,
 			};
 		}
 
@@ -1096,6 +1087,7 @@ function ClashObj(proxies) {
 			"fake-ip-filter": [
 				"geosite:connectivity-check",
 				"geosite:private",
+				"localhost.ptlogin2.qq.com",
 			],
 			"default-nameserver": [
 				"223.5.5.5",
@@ -1115,8 +1107,17 @@ function ClashObj(proxies) {
 				'geoip-code': 'CN',
 				ipcidr: [
 					"240.0.0.0/4",
+					"0.0.0.0/32",
+				],
+				domain: [
+					'+.google.com',
+					'+.facebook.com',
+					'+.youtube.com',
 				]
-			}
+			},
+			"nameserver-policy": {
+				[ECH_SNI]: ECH_DNS,
+			},
 		},
 		proxies: [],
 		"proxy-groups": [
@@ -1162,6 +1163,7 @@ function ClashObj(proxies) {
 	}
 
 	proxies = deduplicateProxyNamesConcise(proxies);
+	proxies.map(p => { clash.dns["nameserver-policy"][p.servername || p.sni || p.server] = ECH_DNS })
 
 	clash.proxies.push(...proxies);
 	const names = proxies.map(proxy => proxy.name);
