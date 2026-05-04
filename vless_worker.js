@@ -34,7 +34,7 @@ async function 启动传输管道(WS接口, request) {
 		const url = new URL(request.url); let 目标集 = DNS目标集; let 连接成功 = false;
 		const IPs = await 查询反代IP(url, request.cf.colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
 		if (is_udp) {
-			if (port !== 53) { throw new Error(`UDP请求只支持DNS解析`); }
+			if (port !== 53) { throw new Error(`UDP请求只支持DNS解析`); } console.log("DNS over TCP", hostname, port);
 		} else {
 			目标集 = [{ hostname, port }, ...Array.from(IPs.entries()).slice(0, 30).sort(() => Math.random() - 0.5).slice(0, 10).map(([ip, { 端口, 失败次数 }]) => ({ hostname: ip, port: 端口 || port }))];
 			const skip = url.searchParams.get('skip') === 'true'; if (skip) 目标集 = 目标集.slice(1);
@@ -53,11 +53,11 @@ async function 启动传输管道(WS接口, request) {
 		建立传输管道(data, is_udp);
 	}
 	async function 建立传输管道(写入初始数据, is_dns) {
-		传输数据 = TCP接口.writable.getWriter();
-		if (写入初始数据.length > 0) { await 传输数据.write(is_dns ? dnsUdpToTcp(写入初始数据) : 写入初始数据); }
+		传输数据 = TCP接口.writable.getWriter(); let DNS首包 = false;
+		if (写入初始数据.length > 0) { if (is_dns) { 写入初始数据 = dnsUdpToTcp(写入初始数据); DNS首包 = true; } await 传输数据.write(写入初始数据); }
 		await TCP接口.readable.pipeTo(
 			new WritableStream({
-				write(chunk) { (WS接口.readyState === WebSocket.OPEN) && WS接口.send(is_dns ? dnsTcpToUdp(chunk) : chunk); },
+				write(chunk) { if (DNS首包) { chunk = dnsTcpToUdp(chunk); DNS首包 = false; } (WS接口.readyState === WebSocket.OPEN) && WS接口.send(chunk); },
 			}),
 		);
 	}
