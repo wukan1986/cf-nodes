@@ -8,9 +8,9 @@ export default {
 			return await 升级WS请求(url, request.cf.colo);
 		}
 		if (url.pathname.startsWith(`/${u}`)) {
-			const v1 = new URL(`\u0076\u006c\u0065\u0073\u0073\u003a\u002f/${u}@104.16.0.0:443?encryption=none&security=tls&sni=${url.hostname}&fp=chrome&type=ws&host=${url.hostname}#CF`); const v2 = new URL("url://127.0.0.1:80/");
-			v2.searchParams.set('A', 'colo.example.com:443'); v2.searchParams.set('AAAA', 'example.com:443'); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', v2.pathname + v2.search);
-			return new Response(v1.href.replace(/example.com/g, atob('cHJveHlpcC5jbWxpdXNzc3MubmV0')), { status: 404 });
+			const v1 = new URL(rev(':SsElV') + `//${u}${String.fromCharCode(64)}www.wto.org:443?encryption=none&security=tls&sni=${url.hostname}&fp=chrome&type=ws&host=${url.hostname}#CF`); const v2 = new URL("url://127.0.0.1:80/");
+			v2.searchParams.set('A', 'colo.' + rev('344:TeN.SsSsUiLmC.PiYxOrP')); v2.searchParams.set('AAAA', rev('344:TeN.SsSsUiLmC.PiYxOrP')); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', v2.pathname + v2.search);
+			return new Response(v1.href, { headers: { 'Content-Type': 'text/html; charset=utf-8' }, status: 404 });
 		}
 		return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 	},
@@ -121,7 +121,7 @@ async function params_TXT(searchParams) { return (await Promise.all(searchParams
 async function params_url(searchParams) { return (await Promise.all(searchParams.getAll('url').map(r => url_txt(r)))).flat(); }
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
 const check_uuid = (a, b) => { const x = new Uint8Array(a); const y = new Uint8Array(b); for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; } return true; };
-const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16));
+const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16)); const rev = s => s.split('').reverse().join('').toLowerCase();
 function dnsUdpToTcp(udp) { return new Uint8Array([udp.length >> 8, udp.length & 0xFF, ...udp]); }
 function dnsTcpToUdp(tcp) { return tcp.slice(2); } // DNS over TCP 功能一直未测试
 let 正在刷新 = false, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }];
