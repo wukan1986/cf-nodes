@@ -2,19 +2,25 @@
 
 export default {
 	async fetch(request, env) {
+		const url = new URL(request.url); const u = env.UUID || 设置变量和机密UUID优先级高于这;
 		if (request.headers.get('Upgrade') === 'websocket') {
-			if (!UUID) { UUID = uuidToArray(env.UUID || 设置变量和机密UUID优先级高于这); }
-			return await 升级WS请求(request);
+			if (!UUID) { UUID = uuidToArray(u); }
+			return await 升级WS请求(url, request.cf.colo);
+		}
+		if (url.pathname.startsWith(`/${u}`)) {
+			const v1 = new URL(`\u0076\u006c\u0065\u0073\u0073\u003a\u002f/${u}@104.16.0.0:443?encryption=none&security=tls&sni=${url.hostname}&fp=chrome&type=ws&host=${url.hostname}#CF`); const v2 = new URL("url://127.0.0.1:80/");
+			v2.searchParams.set('A', 'colo.example.com:443'); v2.searchParams.set('AAAA', 'example.com:443'); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', v2.pathname + v2.search);
+			return new Response(v1.href.replace(/example.com/g, atob('cHJveHlpcC5jbWxpdXNzc3MubmV0')), { status: 404 });
 		}
 		return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 	},
 };
-async function 升级WS请求(request) {
+async function 升级WS请求(url, colo) {
 	const [客户端, WS接口] = Object.values(new WebSocketPair());
-	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; WS接口.send(new Uint8Array([0, 0]).buffer); 启动传输管道(WS接口, request);
+	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; WS接口.send(new Uint8Array([0, 0]).buffer); 启动传输管道(WS接口, url, colo);
 	return new Response(null, { status: 101, webSocket: 客户端 });
 }
-async function 启动传输管道(WS接口, request) {
+async function 启动传输管道(WS接口, url, colo) {
 	let TCP接口, 传输数据, 首包数据 = true;
 	const close = (err) => { console.log(err); try { TCP接口?.close(); } catch { } try { WS接口.close(); } catch { } };
 	new ReadableStream({
@@ -24,15 +30,15 @@ async function 启动传输管道(WS接口, request) {
 	}).pipeTo(new WritableStream({
 		async write(chunk) {
 			if (首包数据) {
-				首包数据 = false; await 解析VL标头(chunk, request);
+				首包数据 = false; await 解析VL标头(chunk, url, colo);
 			} else { if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
 		},
 	}),
 	).catch(close);
-	async function 解析VL标头(VL数据, request) {
+	async function 解析VL标头(VL数据, url, colo) {
 		const { hostname, port, data, is_udp } = addr(VL数据);
-		const url = new URL(request.url); let 目标集 = DNS目标集; let 连接成功 = false;
-		const IPs = await 查询反代IP(url, request.cf.colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
+		let 目标集 = DNS目标集; let 连接成功 = false;
+		const IPs = await 查询反代IP(url, colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
 		if (is_udp) {
 			if (port !== 53) { throw new Error(`UDP请求只支持DNS解析`); } console.log("DNS over TCP", hostname, port);
 		} else {
