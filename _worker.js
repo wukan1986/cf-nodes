@@ -1124,7 +1124,7 @@ function ClashObj(proxies) {
 			{
 				name: "🚀 节点选择",
 				type: "select",
-				proxies: ["♻️ 自动选择", "☑️ 手动切换", "DIRECT"]
+				proxies: ["♻️ 自动选择", "☑️ 手动切换", "🔮 负载均衡", "DIRECT"]
 			},
 			{
 				name: "♻️ 自动选择",
@@ -1140,9 +1140,18 @@ function ClashObj(proxies) {
 				proxies: []
 			},
 			{
+				name: "🔮 负载均衡",
+				type: "load-balance",
+				url: "https://www.google.com/generate_204",
+				interval: 300,
+				tolerance: 50,
+				strategy: "round-robin",
+				proxies: []
+			},
+			{
 				name: "🐟 漏网之鱼",
 				type: "select",
-				proxies: ["🚀 节点选择", "♻️ 自动选择", "DIRECT"]
+				proxies: ["🚀 节点选择", "DIRECT", "REJECT"]
 			}
 		],
 		rules: [
@@ -1169,6 +1178,7 @@ function ClashObj(proxies) {
 	const names = proxies.map(proxy => proxy.name);
 	clash["proxy-groups"][1].proxies.push(...names);
 	clash["proxy-groups"][2].proxies.push(...names);
+	clash["proxy-groups"][3].proxies.push(...names);
 
 	return clash;
 }
