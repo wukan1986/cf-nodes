@@ -62,13 +62,13 @@ async function 启动传输管道(WS接口, url, colo) {
 		传输数据 = TCP接口.writable.getWriter(); let DNS首包 = false;
 		if (写入初始数据.length > 0) { if (is_dns) { 写入初始数据 = dnsUdpToTcp(写入初始数据); DNS首包 = true; } await 传输数据.write(写入初始数据); }
 		const reader = TCP接口.readable.getReader({ mode: 'byob' });
-		const BYOB缓冲区大小 = 1024 * 256, BYOB单次读取上限 = 1024 * 32, BYOB安全阈值 = BYOB缓冲区大小 - BYOB单次读取上限;
+		const BYOB缓冲区大小 = 1024 * 256, 系统最大4KB = 4096, BYOB安全阈值 = BYOB缓冲区大小 - 系统最大4KB;
 		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null;
 		try {
 			while (true) {
-				const { value, done } = await reader.read(new Uint8Array(buffer, offset, BYOB单次读取上限)); if (done) break;
+				const { value, done } = await reader.read(new Uint8Array(buffer, offset, 系统最大4KB)); if (done) break;
 				buffer = value.buffer; offset += value.byteLength;
-				if (value.byteLength < BYOB单次读取上限 || offset >= BYOB安全阈值 || performance.now() - lastReadTime >= 32) {
+				if (value.byteLength < 系统最大4KB || performance.now() - lastReadTime >= 50 || offset >= BYOB安全阈值) {
 					chunk = new Uint8Array(buffer, 0, offset); offset = 0; lastReadTime = performance.now();
 				} else { continue; }
 				if (DNS首包) { chunk = dnsTcpToUdp(chunk); DNS首包 = false; }
