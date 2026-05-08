@@ -1067,7 +1067,7 @@ function deduplicateProxyNamesConcise(proxies) {
 
 	return result;
 }
-
+const isIP = (ip) => /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) || /.*:.*:.*/.test(ip);
 function ClashObj(proxies) {
 	const clash = {
 		port: 7890,
@@ -1172,7 +1172,7 @@ function ClashObj(proxies) {
 	}
 
 	proxies = deduplicateProxyNamesConcise(proxies);
-	proxies.map(p => { clash.dns["nameserver-policy"][p.servername || p.sni || p.server] = ECH_DNS })
+	proxies.map(p => { const k = p.servername || p.sni || p.server; if (isIP(k)) return; clash.dns["nameserver-policy"][k] = ECH_DNS })
 
 	clash.proxies.push(...proxies);
 	const names = proxies.map(proxy => proxy.name);
