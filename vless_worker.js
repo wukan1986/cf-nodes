@@ -59,8 +59,8 @@ async function 启动传输管道(WS接口, url, colo) {
 		建立传输管道(data, is_udp);
 	}
 	async function 建立传输管道(写入初始数据, is_dns) {
-		传输数据 = TCP接口.writable.getWriter(); let DNS首包 = false;
-		if (写入初始数据.length > 0) { if (is_dns) { 写入初始数据 = dnsUdpToTcp(写入初始数据); DNS首包 = true; } await 传输数据.write(写入初始数据); }
+		传输数据 = TCP接口.writable.getWriter();// let DNS首包 = false;
+		if (写入初始数据.length > 0) { /*if (is_dns) { 写入初始数据 = dnsUdpToTcp(写入初始数据); DNS首包 = true; }*/ await 传输数据.write(写入初始数据); }
 		const reader = TCP接口.readable.getReader({ mode: 'byob' });
 		const BYOB缓冲区大小 = 1024 * 256, 系统最大4KB = 4096, BYOB安全阈值 = BYOB缓冲区大小 - 系统最大4KB;
 		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null;
@@ -70,8 +70,7 @@ async function 启动传输管道(WS接口, url, colo) {
 				buffer = value.buffer; offset += value.byteLength;
 				if (value.byteLength < 系统最大4KB || performance.now() - lastReadTime >= 50 || offset >= BYOB安全阈值) {
 					chunk = new Uint8Array(buffer, 0, offset); offset = 0; lastReadTime = performance.now();
-				} else { continue; }
-				if (DNS首包) { chunk = dnsTcpToUdp(chunk); DNS首包 = false; }
+				} else { continue; } //if (DNS首包) { chunk = dnsTcpToUdp(chunk); DNS首包 = false; }
 				if (WS接口.readyState === WebSocket.OPEN) { WS接口.send(chunk); }
 			}
 		} catch (e) { close(e); } finally { reader.releaseLock(); }
@@ -131,6 +130,5 @@ async function params_url(searchParams) { return (await Promise.all(searchParams
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
 const check_uuid = (a, b) => { const x = new Uint8Array(a); const y = new Uint8Array(b); for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; } return true; };
 const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16)); const rev = s => s.split('').reverse().join('').toLowerCase();
-function dnsUdpToTcp(udp) { return new Uint8Array([udp.length >> 8, udp.length & 0xFF, ...udp]); } function dnsTcpToUdp(tcp) { return tcp.slice(2); } // DNS over TCP 功能一直未测试
 import { connect } from 'cloudflare:sockets';
 let 正在刷新 = false, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }];
