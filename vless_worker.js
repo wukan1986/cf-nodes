@@ -26,15 +26,15 @@ async function 启动传输管道(WS接口, url, colo) {
 	new ReadableStream({
 		start(controller) {
 			WS接口.addEventListener('message', (event) => { if (cancelled) return; controller.enqueue(event.data); });
-			WS接口.addEventListener('close', (e) => { cancelled = true;});
-			WS接口.addEventListener('error', (e) => { close(e); });
+			WS接口.addEventListener('close', (e) => { cancelled = true; });
+			WS接口.addEventListener('error', (e) => { close(e, false); });
 		},
 		cancel() { cancelled = true; },
 	}).pipeTo(new WritableStream({
 		async write(chunk) {
 			if (首包数据) {
 				首包数据 = false; await 解析VL标头(chunk, url, colo);
-			} else { if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
+			} else { if (cancelled) return; if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
 		},
 	}),
 	).catch(close);
