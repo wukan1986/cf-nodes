@@ -17,16 +17,19 @@ export default {
 };
 async function 升级WS请求(url, colo) {
 	const [客户端, WS接口] = Object.values(new WebSocketPair());
-	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; WS接口.send(new Uint8Array([0, 0]).buffer); 启动传输管道(WS接口, url, colo);
+	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; WS接口.send(new Uint8Array([0, 0]).buffer); 启动传输管道(WS接口, url, colo).catch(() => { });
 	return new Response(null, { status: 101, webSocket: 客户端 });
 }
 async function 启动传输管道(WS接口, url, colo) {
-	let TCP接口, 传输数据, 首包数据 = true;
-	const close = (err) => { console.log(err); try { TCP接口?.close(); } catch { } try { WS接口.close(); } catch { } };
+	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false;
+	const close = (err, print = true) => { cancelled = true; if (print) console.log(err); try { TCP接口?.close(); } catch { } finally { TCP接口 = null; }; try { WS接口.close(); } catch { } };
 	new ReadableStream({
 		start(controller) {
-			WS接口.addEventListener('message', (event) => { controller.enqueue(event.data); });
+			WS接口.addEventListener('message', (event) => { if (cancelled) return; controller.enqueue(event.data); });
+			WS接口.addEventListener('close', (e) => { cancelled = true;});
+			WS接口.addEventListener('error', (e) => { close(e); });
 		},
+		cancel() { cancelled = true; },
 	}).pipeTo(new WritableStream({
 		async write(chunk) {
 			if (首包数据) {
@@ -73,7 +76,7 @@ async function 启动传输管道(WS接口, url, colo) {
 				} else { continue; } //if (DNS首包) { chunk = dnsTcpToUdp(chunk); DNS首包 = false; }
 				if (WS接口.readyState === WebSocket.OPEN) { WS接口.send(chunk); }
 			}
-		} catch (e) { close(e); } finally { reader.releaseLock(); }
+		} catch (e) { close(e, false) } finally { reader.releaseLock(); }
 	}
 }
 function addr(VL数据) {
