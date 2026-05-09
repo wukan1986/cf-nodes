@@ -1172,7 +1172,7 @@ function ClashObj(proxies) {
 	}
 
 	proxies = deduplicateProxyNamesConcise(proxies);
-	proxies.map(p => { const k = p.servername || p.sni || p.server; if (isIP(k)) return; clash.dns["nameserver-policy"][k] = ECH_DNS })
+	proxies.map(p => { const k = p.sni || p.servername || p.server; if (isIP(k)) return; clash.dns["nameserver-policy"][k] = ECH_DNS })
 
 	clash.proxies.push(...proxies);
 	const names = proxies.map(proxy => proxy.name);
