@@ -1,13 +1,13 @@
-﻿const TLS下认证可简化 = '支持中文认证';
+﻿const TLS下认证可简化 = '支持中文密钥';
 
 export default {
 	async fetch(request, env) {
 		const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
 		if (url.pathname.startsWith(路径)) {
 			if (request.headers.get('Upgrade') === 'websocket') { return await 升级WS请求(url, request.cf.colo, url.pathname.endsWith(VLE)); }
-			const v1 = new URL(`pRoToCoL://${crypto.randomUUID()}${String.fromCharCode(64)}www.wto.org:443?security=tls&sni=${url.hostname}&fp=chrome&type=ws&host=${url.hostname}#CF`);
-			const v2 = new URL(`url://127.0.0.1:80/${UUID}/pRoToCoL`); v2.searchParams.set('AAAA', AAAA); v2.searchParams.set('A', `colo.${AAAA}`); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', v2.pathname + v2.search);
-			return new Response(v1.href.replace(/pRoToCoL/gi, VLE) + "\n\n" + v1.href.replace(/pRoToCoL/gi, TRO), { status: 404 });
+			const v1 = new URL(`pro-to-col://12345678-1234-1234-1234-123456789012${String.fromCharCode(64)}www.wto.org:443?security=tls&sni=${url.hostname}&fp=chrome&type=ws&host=${url.hostname}#CF`);
+			const v2 = new URL(`url://127.0.0.1:80/${UUID}/pro-to-col`); v2.searchParams.set('AAAA', AAAA); v2.searchParams.set('A', `colo.${AAAA}`); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', v2.pathname + v2.search);
+			return new Response(v1.href.replace(/pro-to-col/g, VLE) + "\n\n" + v1.href.replace(/pro-to-col/g, TRO), { status: 404 });
 		}
 		return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 	},

@@ -132,8 +132,6 @@ http-server
 发现目前网络上提供的`v2ray`转`clash/singbox`的服务都会丢失`ech`信息，本工具会试着补全`ECH`信息，
 底层会将`ech=1`标记在`path`字段，经过转换后，此字段还保留，可以被再次利用起来。
 
-`edgetunnel`和`cfnew`有对`DNS`覆写的功能，但改`yaml`实在麻烦，还是交给各客户端软件的覆写吧
-
 ### 浏览器ECH设置教程
 https://zhuanlan.zhihu.com/p/3739662610
 
