@@ -1,26 +1,24 @@
-﻿const 设置变量和机密UUID优先级高于这 = '12345678-1234-1234-1234-123456789012';
+﻿const TLS下认证可简化 = '支持中文认证';
 
 export default {
 	async fetch(request, env) {
-		const url = new URL(request.url); const u = env.UUID || 设置变量和机密UUID优先级高于这;
-		if (request.headers.get('Upgrade') === 'websocket') {
-			if (!UUID) { UUID = uuidToArray(u); }
-			return await 升级WS请求(url, request.cf.colo);
-		}
-		if (url.pathname.startsWith(`/${u}`)) {
-			const v1 = new URL(rev(':SsElV') + `//${u}${String.fromCharCode(64)}www.wto.org:443?encryption=none&security=tls&sni=${url.hostname}&fp=chrome&type=ws&host=${url.hostname}#CF`); const v2 = new URL("url://127.0.0.1:80/");
-			v2.searchParams.set('A', 'colo.' + rev('344:TeN.SsSsUiLmC.PiYxOrP')); v2.searchParams.set('AAAA', rev('344:TeN.SsSsUiLmC.PiYxOrP')); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', v2.pathname + v2.search);
-			return new Response(v1.href, { status: 404 });
+		const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
+		if (url.pathname.startsWith(路径)) {
+			if (request.headers.get('Upgrade') === 'websocket') { return await 升级WS请求(url, request.cf.colo, url.pathname.endsWith(VLE)); }
+			const v1 = new URL(`pRoToCoL://${crypto.randomUUID()}${String.fromCharCode(64)}www.wto.org:443?security=tls&sni=${url.hostname}&fp=chrome&type=ws&host=${url.hostname}#CF`);
+			const v2 = new URL(`url://127.0.0.1:80/${UUID}/pRoToCoL`); v2.searchParams.set('AAAA', AAAA); v2.searchParams.set('A', `colo.${AAAA}`); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', v2.pathname + v2.search);
+			return new Response(v1.href.replace(/pRoToCoL/gi, VLE) + "\n\n" + v1.href.replace(/pRoToCoL/gi, TRO), { status: 404 });
 		}
 		return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 	},
 };
-async function 升级WS请求(url, colo) {
+async function 升级WS请求(url, colo, is_vle) {
 	const [客户端, WS接口] = Object.values(new WebSocketPair());
-	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; WS接口.send(new Uint8Array([0, 0]).buffer); 启动传输管道(WS接口, url, colo).catch(() => { });
-	return new Response(null, { status: 101, webSocket: 客户端 });
+	WS接口.accept(); WS接口.binaryType = 'arraybuffer';
+	if (is_vle) WS接口.send(new Uint8Array([0, 0]).buffer); // 可跳过sec-websocket-protocol
+	启动传输管道(WS接口, url, colo, is_vle).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
 }
-async function 启动传输管道(WS接口, url, colo) {
+async function 启动传输管道(WS接口, url, colo, is_vle) {
 	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false;
 	const close = (err, print = true) => { cancelled = true; if (print) console.log(err); try { TCP接口?.close(); } catch { } finally { TCP接口 = null; }; try { WS接口.close(); } catch { } };
 	new ReadableStream({
@@ -33,13 +31,12 @@ async function 启动传输管道(WS接口, url, colo) {
 	}).pipeTo(new WritableStream({
 		async write(chunk) {
 			if (首包数据) {
-				首包数据 = false; await 解析VL标头(chunk, url, colo);
+				首包数据 = false; await 解析标头(chunk, url, colo, is_vle);
 			} else { if (cancelled) return; if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
 		},
-	}),
-	).catch(close);
-	async function 解析VL标头(VL数据, url, colo) {
-		const { hostname, port, data, is_udp } = addr(VL数据);
+	}),).catch(close);
+	async function 解析标头(数据, url, colo, is_vle) {
+		const { hostname, port, data, is_udp } = is_vle ? addr_vle(数据) : addr_tro(数据);
 		let 目标集 = DNS目标集; let 连接成功 = false;
 		const IPs = await 查询反代IP(url, colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
 		if (is_udp) {
@@ -79,20 +76,33 @@ async function 启动传输管道(WS接口, url, colo) {
 		} catch (e) { close(e, false) } finally { reader.releaseLock(); }
 	}
 }
-function addr(VL数据) {
-	if (VL数据.byteLength < 24) { throw new Error('数据长度不足'); }
-	const V = new Uint8Array(VL数据);
-	if (!check_uuid(UUID, V.subarray(1, 17))) { throw new Error('密钥验证失败'); }
+function addr_vle(数据) {
+	if (数据.byteLength < 26) { throw new Error('数据长度不足'); }
+	const V = new Uint8Array(数据);
 	const 提取命令索引 = 18 + V[17]; const cmd = V[提取命令索引];
-	const 提取端口索引 = 提取命令索引 + 1; const port = new DataView(VL数据, 提取端口索引, 2).getUint16(0);
+	const 提取端口索引 = 提取命令索引 + 1; const port = new DataView(数据, 提取端口索引, 2).getUint16(0);
 	const 提取地址索引 = 提取端口索引 + 2; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
 	switch (V[提取地址索引]) {
 		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
 		case 2: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
-		case 3: 长度 = 16; const dataView = new DataView(VL数据, 地址索引, 长度); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
+		case 3: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
 		default: throw new Error(`地址类型错误`);
 	}
 	return { hostname, port, data: V.subarray(地址索引 + 长度), is_udp: cmd === 2 };
+}
+function addr_tro(数据) {
+	if (数据.byteLength < 66) { throw new Error('数据长度不足'); }
+	const V = new Uint8Array(数据);
+	const 提取命令索引 = 58; const cmd = V[提取命令索引];
+	const 提取地址索引 = 提取命令索引 + 1; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
+	switch (V[提取地址索引]) {
+		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
+		case 3: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
+		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
+		default: throw new Error(`地址类型错误`);
+	}
+	const 提取端口索引 = 地址索引 + 长度; const port = new DataView(数据, 提取端口索引, 2).getUint16(0);
+	return { hostname, port, data: V.subarray(提取端口索引 + 4), is_udp: cmd === 3 };
 }
 async function 查询反代IP(url, colo) {
 	const search = url.search;
@@ -119,8 +129,7 @@ async function getDnsRecord(domain, type) {
 			const type = Array.isArray(data.Question) ? data.Question[0]?.type : data.Question?.type;
 			const ips = data.Answer.filter(r => r.type === type).map(r => r.data); if (ips.length > 0) { return ips; }
 		} catch { }
-	}
-	return [];
+	} return [];
 }
 function ip_to_obj(ip, port) { ip = ip.trim(); if (/.*:.*:.*/.test(ip)) ip = `[${ip}]`; const u = new URL('url://' + ip); return { hostname: u.hostname, port: +(u.port || port) }; }
 async function dns_ip(domain, type, colo = 'colo') { const u = new URL('url://' + domain.replace('colo', colo).toLowerCase()); return (await getDnsRecord(u.hostname, type)).map(ip => ip_to_obj(ip, u.port)) }
@@ -131,7 +140,5 @@ async function params_A_AAAA(searchParams, type, colo) { return (await Promise.a
 async function params_TXT(searchParams) { return (await Promise.all(searchParams.getAll('TXT').map(r => dns_txt(r, 'TXT')))).flat(); }
 async function params_url(searchParams) { return (await Promise.all(searchParams.getAll('url').map(r => url_txt(r)))).flat(); }
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
-const check_uuid = (a, b) => { const x = new Uint8Array(a); const y = new Uint8Array(b); for (let i = 0; i < x.length; i++) { if (x[i] !== y[i]) return false; } return true; };
-const uuidToArray = u => u.replace(/-/g, '').match(/.{2}/g).map(byte => parseInt(byte, 16)); const rev = s => s.split('').reverse().join('').toLowerCase();
-import { connect } from 'cloudflare:sockets';
-let 正在刷新 = false, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }];
+import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }];
+const rev = s => s.split('').reverse().join('').toLowerCase(); const AAAA = rev('344:TeN.SsSsUiLmC.PiYxOrP'), VLE = rev('SsElV'), TRO = rev('NaJoRt'); 
