@@ -4,39 +4,37 @@ export default {
 	async fetch(request, env) {
 		const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
 		if (url.pathname.startsWith(路径)) {
-			if (request.headers.get('Upgrade') === 'websocket') { return await 升级WS请求(url, request.cf.colo, url.pathname.split('/').pop()); }
+			if (request.headers.get('Upgrade') === 'websocket') { return await 升级WS请求(url, request.cf.colo, request.headers.get('sec-websocket-protocol')); }
 			return new Response(创建链接1(url.hostname, UUID).replace(/pro-to-col/g, VL) + "\n\n" + 创建链接1(url.hostname, UUID).replace(/pro-to-col/g, TR) + "\n\n" + 创建链接2(url.hostname, UUID).replace(/pro-to-col/g, SS), { status: 404 });
 		}
 		return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 	},
 };
-async function 升级WS请求(url, colo, 协议) {
+async function 升级WS请求(url, colo, ed) {
 	const [客户端, WS接口] = Object.values(new WebSocketPair());
-	WS接口.accept(); WS接口.binaryType = 'arraybuffer';
-	if (协议 === VL) WS接口.send(new Uint8Array([0, 0]).buffer); // 可跳过sec-websocket-protocol
-	启动传输管道(WS接口, url, colo, 协议).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
+	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; 启动传输管道(WS接口, url, colo, ed).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
 }
-async function 启动传输管道(WS接口, url, colo, 协议) {
+async function 启动传输管道(WS接口, url, colo, ed) {
 	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false;
-	const close = (err, print = true) => { cancelled = true; if (print) console.log(err); try { TCP接口?.close(); } catch { } finally { TCP接口 = null; }; try { WS接口.close(); } catch { } };
+	const close = (err, print = false) => { if (print) console.log(err); if (cancelled) return; cancelled = true; try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
 		start(controller) {
 			WS接口.addEventListener('message', (event) => { if (cancelled) return; controller.enqueue(event.data); });
 			WS接口.addEventListener('close', (e) => { cancelled = true; });
-			WS接口.addEventListener('error', (e) => { close(e, false); });
+			WS接口.addEventListener('error', (e) => { close(e); });
+			if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
 		},
 		cancel() { cancelled = true; },
 	}).pipeTo(new WritableStream({
 		async write(chunk) {
 			if (首包数据) {
-				首包数据 = false; await 解析标头(chunk, url, colo, 协议);
+				首包数据 = false; await 解析标头(chunk, url, colo);
 			} else { if (cancelled) return; if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
 		},
 	}),).catch(close);
-	async function 解析标头(数据, url, colo, 协议) {
-		const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据);
-		let 目标集 = DNS目标集; let 连接成功 = false;
-		const IPs = await 查询反代IP(url, colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
+	async function 解析标头(数据, url, colo) {
+		const 协议 = url.pathname.split('/').pop(); const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据);
+		let 目标集 = DNS目标集; let 连接成功 = false; const IPs = await 查询反代IP(url, colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
 		if (is_udp) {
 			if (port !== 53) { throw new Error(`UDP请求只支持DNS解析`); } console.log("DNS over TCP", hostname, port);
 		} else {
@@ -54,6 +52,7 @@ async function 启动传输管道(WS接口, url, colo, 协议) {
 			}
 		}
 		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port} - 目标集长度：${目标集.length}`);
+		if (协议 === VL) { WS接口.send(new Uint8Array([0, 0]).buffer) };
 		建立传输管道(data, is_udp);
 	}
 	async function 建立传输管道(写入初始数据, is_dns) {
@@ -71,7 +70,7 @@ async function 启动传输管道(WS接口, url, colo, 协议) {
 				} else { continue; } //if (DNS首包) { chunk = dnsTcpToUdp(chunk); DNS首包 = false; }
 				if (WS接口.readyState === WebSocket.OPEN) { WS接口.send(chunk); }
 			}
-		} catch (e) { close(e, false) } finally { reader.releaseLock(); }
+		} catch (e) { close(e) } finally { reader.releaseLock(); }
 	}
 }
 function addr_vl(数据) {
