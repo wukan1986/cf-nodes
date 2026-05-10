@@ -737,7 +737,7 @@ function VlessTrojanAnytlsHysteria2ToClash(vlessUrl, options = {}) {
 		const network = node.network;
 		if (network === 'ws') {
 			node['ws-opts'] = {
-				path: params.get('path') || '/',
+				path: decodeURIComponent(params.get('path')) || '/',
 				headers: {}
 			};
 			const host = params.get('host');
@@ -749,7 +749,7 @@ function VlessTrojanAnytlsHysteria2ToClash(vlessUrl, options = {}) {
 		} else if (network === 'h2') {
 			node['h2-opts'] = {
 				host: params.get('host') ? [params.get('host')] : [],
-				path: params.get('path') || '/'
+				path: decodeURIComponent(params.get('path')) || '/'
 			};
 		}
 
@@ -922,8 +922,8 @@ function ShadowsocksToClash(ssUrl, options = {}) {
 	try {
 		// 解析完整的 Shadowsocks 链接
 		const url = new URL(ssUrl);
+		// console.log(url);
 		const params = url.searchParams;
-		console.log(url);
 
 		const [method, password] = atob(url.username).split(':');
 
@@ -935,18 +935,16 @@ function ShadowsocksToClash(ssUrl, options = {}) {
 			cipher: method,
 			password: password,
 		};
-		console.log(node);
+		// console.log(node);
 
 		// 解析插件参数
 		const plugin = decodeURIComponent(url.searchParams.get('plugin'));
-		console.log(plugin);
-
 
 		if (plugin) {
 			const parts = plugin.split(';');
 			node.plugin = parts[0];
 
-			let pluginOpts = { tls: false, 'skip-cert-verify': false };
+			let pluginOpts = { tls: false, 'skip-cert-verify': true };
 
 			parts.slice(1).forEach(part => {
 				const eqIndex = part.indexOf('=');
@@ -954,6 +952,8 @@ function ShadowsocksToClash(ssUrl, options = {}) {
 					const key = part.substring(0, eqIndex);
 					const value = part.substring(eqIndex + 1);
 					pluginOpts[key] = decodeURIComponent(value);
+				} else if (part.trim() === 'tls') {
+					pluginOpts.tls = true;
 				}
 			});
 			// 如果有额外的参数
@@ -1118,7 +1118,7 @@ function ClashObj(proxies) {
 			{
 				name: "🚀 节点选择",
 				type: "select",
-				proxies: ["♻️ 自动选择", "☑️ 手动切换", "🔮 负载均衡", "DIRECT"]
+				proxies: ["♻️ 自动选择", "☑️ 手动切换", "🔮 轮询", "DIRECT"]
 			},
 			{
 				name: "♻️ 自动选择",
@@ -1134,7 +1134,7 @@ function ClashObj(proxies) {
 				proxies: []
 			},
 			{
-				name: "🔮 负载均衡",
+				name: "🔮 轮询",
 				type: "load-balance",
 				url: "https://www.google.com/generate_204",
 				interval: 300,
@@ -1166,7 +1166,8 @@ function ClashObj(proxies) {
 	}
 
 	proxies = deduplicateProxyNamesConcise(proxies);
-	proxies.map(p => { const k = p.sni || p.servername || p.server; if (isIP(k)) return; clash.dns["nameserver-policy"][k] = ECH_DNS })
+	proxies.map(p => { const k = p.sni || p.servername || p.server; if (isIP(k)) return; clash.dns["nameserver-policy"][k] = ECH_DNS });
+	proxies.map(p => { const k = p['ws-opts']?.headers?.Host || p['plugin-opts']?.host; if (isIP(k)) return; clash.dns["nameserver-policy"][k] = ECH_DNS });
 
 	clash.proxies.push(...proxies);
 	const names = proxies.map(proxy => proxy.name);
