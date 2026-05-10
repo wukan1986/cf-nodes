@@ -34,7 +34,7 @@ async function 启动传输管道(WS接口, url, colo, 协议) {
 		},
 	}),).catch(close);
 	async function 解析标头(数据, url, colo, 协议) {
-		const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据); console.log("目标", hostname, port, is_udp);
+		const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据);
 		let 目标集 = DNS目标集; let 连接成功 = false;
 		const IPs = await 查询反代IP(url, colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
 		if (is_udp) {
@@ -151,7 +151,7 @@ async function params_TXT(searchParams) { return (await Promise.all(searchParams
 async function params_url(searchParams) { return (await Promise.all(searchParams.getAll('url').map(r => url_txt(r)))).flat(); }
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
 import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }];
-const rev = s => s.split('').reverse().join('').toLowerCase(); const AAAA = rev('344:TeN.SsSsUiLmC.PiYxOrP'), VL = rev('SsElV'), TR = rev('NaJoRt'), SS = 'ss';
+const rev = s => s.split('').reverse().join('').toLowerCase(); const AAAA = rev('344:TeN.SsSsUiLmC.PiYxOrP'), VL = rev('SsElV'), TR = rev('NaJoRt'), SS = rev('sS'), V2 = rev('nIgUlP-yAr2v');
 function 创建链接1(hostname, uuid) {
 	const v1 = new URL(`pro-to-col://12345678-1234-1234-1234-123456789012${String.fromCharCode(64)}www.wto.org:443?security=tls&sni=${hostname}&fp=chrome&type=ws&host=${hostname}#CF-VL-TR`);
 	const v2 = new URL(`url://127.0.0.1:80/${uuid}/pro-to-col`); v2.searchParams.set('AAAA', AAAA); v2.searchParams.set('A', `colo.${AAAA}`);
@@ -160,5 +160,5 @@ function 创建链接1(hostname, uuid) {
 function 创建链接2(hostname, uuid) {
 	const v1 = new URL(`pro-to-col://bm9uZToxMjM0NTY3OC0xMjM0LTEyMzQtMTIzNC0xMjM0NTY3ODkwMTI${String.fromCharCode(64)}www.wto.org:443#CF-SS`);
 	const v2 = new URL(`url://127.0.0.1:80/${uuid}/pro-to-col`); v2.searchParams.set('AAAA', AAAA); v2.searchParams.set('A', `colo.${AAAA}`);//ech无法导入但可配置
-	v1.searchParams.set('plugin', `v2ray-plugin;mode=websocket;host=${hostname};path=${decodeURIComponent(v2.pathname + v2.search)};tls;mux=0`); return v1.href;
+	v1.searchParams.set('plugin', `${V2};mode=websocket;host=${hostname};path=${decodeURIComponent(v2.pathname + v2.search)};tls;mux=0`); return v1.href;
 }
