@@ -3,8 +3,8 @@ const ECH_SNI = "cloudflare-ech.com";
 const ECH_DNS = "https://dns.alidns.com/dns-query";
 
 // 提交到仓库时用
-const HOME_GITHUB = "https://raw.githubusercontent.com/wukan1986/cf-nodes-aggregator/main/home.html";
-const LINK_GITHUB = "https://raw.githubusercontent.com/wukan1986/cf-nodes-aggregator/main/link.html";
+const HOME_GITHUB = "https://raw.githubusercontent.com/wukan1986/cf-nodes/main/home.html";
+const LINK_GITHUB = "https://raw.githubusercontent.com/wukan1986/cf-nodes/main/link.html";
 // 本地测试访问127.0.0.1时使用，可本地执行http-server，开启服务
 const HOME_LOCAL = "http://127.0.0.1:8080/home.html";
 const LINK_LOCAL = "http://127.0.0.1:8080/link.html";
@@ -329,7 +329,7 @@ function 调整链接列表(links) {
 	return links.map(i => 调整协议链接(i));
 }
 
-function hostnames_limit_region(region_hostname, limit_region) {
+function hostnames_limit_region(region_hostname, limit_region, limit) {
 	const regionMap = new Map();
 	for (const [limit, region] of limit_region) {
 		const hostnames_part = region_hostname.get(region);
@@ -343,7 +343,7 @@ function hostnames_limit_region(region_hostname, limit_region) {
 			regionMap.set(region, limitedList);
 		}
 	}
-	return [...regionMap.values()].flat();
+	return [...regionMap.values()].flat().slice(0, limit);
 }
 
 function hostnames_limit(hostnames, limit) {
@@ -433,12 +433,9 @@ async function handle_extract(url) {
 	let hostnames = await fetch_hostnames(url.searchParams.get('hostnames'));
 	console.log(hostnames);
 	if (url.searchParams.get('region')) {
-		hostnames = hostnames_limit_region(group_hostnames_by_hash(hostnames), get_limit_region(url, 30));
-		// 限制最多60条
-		hostnames = hostnames_limit(hostnames, 80);
+		hostnames = hostnames_limit_region(group_hostnames_by_hash(hostnames), get_limit_region(url, 30), 80);
 	}
 	else {
-		// 限制最多60条
 		hostnames = hostnames_limit(hostnames, get_limit(url, 80))
 	}
 	return new Response(JSON.stringify(hostnames, null, 0), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Expires': '0' } });
@@ -448,12 +445,9 @@ async function handle_v2ray(url, request, base64) {
 	let hostnames = await fetch_hostnames(url.searchParams.get('hostnames'));
 	// console.log(hostnames);
 	if (url.searchParams.get('region')) {
-		hostnames = hostnames_limit_region(group_hostnames_by_hash(hostnames), get_limit_region(url, 30));
-		// 限制最多60条
-		hostnames = hostnames_limit(hostnames, 80);
+		hostnames = hostnames_limit_region(group_hostnames_by_hash(hostnames), get_limit_region(url, 30), 80);
 	}
 	else {
-		// 限制最多60条
 		hostnames = hostnames_limit(hostnames, get_limit(url, 80))
 	}
 	let nodes;

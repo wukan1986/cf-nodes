@@ -1,4 +1,4 @@
-# cf-nodes-aggregator
+# cf-nodes
 将多个cf的节点的`uuid`和`sni`聚合到一个订阅中
 
 每个账号`10w请求`限制，注册多个CF账号后，除非统一`UUID`，否则无法利用`edgetunnel`的单面板管理多节点
@@ -36,7 +36,7 @@
 
 `订阅器`、`订阅转换后端`无要求。
 1. `Workers`部署复制代码即可。修改调试方便，国内无法直接访问，需配合自定义域
-2. `Pages`部署上传代码即可。无域名可选这种，提供了免费域名
+2. `Pages`部署上传代码即可。无域名可选这种，提供了免费域名。（推荐使用`Pages`）
 
 ## 使用方法
 1. 访问`https://*.pages.dev/home`，进入订阅页面。提前准备好可用的节点文件，然后依次设置，观察链接是否可用
@@ -45,7 +45,7 @@
 
 ## 额外功能（抓取优选信息）
 1. 例如：访问`https://*.pages.dev/extract?hostnames=https://raw.githubusercontent.com/hc990275/yx/main/cfyxip.txt&region=HK-JP-US&limit=10-6-10`，抓取IP信息
-2. 例如：访问`https://*.pages.dev/extract?hostnames=https://raw.githubusercontent.com/wukan1986/cf-nodes-aggregator/main/best_domains.txt&limit=20`，抓取域名信息
+2. 例如：访问`https://*.pages.dev/extract?hostnames=https://raw.githubusercontent.com/wukan1986/cf-nodes/main/best_domains.txt&limit=20`，抓取域名信息
 
 ## 额外功能（指定UA爬取）
 1. 订阅时指定`UA`，临时解决部分软件不支持自定义`UA`的场景，也能解决部分订阅地址无法直接访问的场景
