@@ -4,21 +4,19 @@ export default {
 	async fetch(request, env) {
 		const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
 		if (url.pathname.startsWith(路径)) {
-			if (request.headers.get('Upgrade') === 'websocket') { return await 升级WS请求(url, request.cf.colo, url.pathname.endsWith(VLE)); }
-			const v1 = new URL(`pro-to-col://12345678-1234-1234-1234-123456789012${String.fromCharCode(64)}www.wto.org:443?security=tls&sni=${url.hostname}&fp=chrome&type=ws&host=${url.hostname}#CF`);
-			const v2 = new URL(`url://127.0.0.1:80/${UUID}/pro-to-col`); v2.searchParams.set('AAAA', AAAA); v2.searchParams.set('A', `colo.${AAAA}`); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', v2.pathname + v2.search);
-			return new Response(v1.href.replace(/pro-to-col/g, VLE) + "\n\n" + v1.href.replace(/pro-to-col/g, TRO), { status: 404 });
+			if (request.headers.get('Upgrade') === 'websocket') { return await 升级WS请求(url, request.cf.colo, url.pathname.split('/').pop()); }
+			return new Response(创建链接1(url.hostname, UUID).replace(/pro-to-col/g, VL) + "\n\n" + 创建链接1(url.hostname, UUID).replace(/pro-to-col/g, TR) + "\n\n" + 创建链接2(url.hostname, UUID).replace(/pro-to-col/g, SS), { status: 404 });
 		}
 		return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 	},
 };
-async function 升级WS请求(url, colo, is_vle) {
+async function 升级WS请求(url, colo, 协议) {
 	const [客户端, WS接口] = Object.values(new WebSocketPair());
 	WS接口.accept(); WS接口.binaryType = 'arraybuffer';
-	if (is_vle) WS接口.send(new Uint8Array([0, 0]).buffer); // 可跳过sec-websocket-protocol
-	启动传输管道(WS接口, url, colo, is_vle).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
+	if (协议 === VL) WS接口.send(new Uint8Array([0, 0]).buffer); // 可跳过sec-websocket-protocol
+	启动传输管道(WS接口, url, colo, 协议).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
 }
-async function 启动传输管道(WS接口, url, colo, is_vle) {
+async function 启动传输管道(WS接口, url, colo, 协议) {
 	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false;
 	const close = (err, print = true) => { cancelled = true; if (print) console.log(err); try { TCP接口?.close(); } catch { } finally { TCP接口 = null; }; try { WS接口.close(); } catch { } };
 	new ReadableStream({
@@ -31,12 +29,12 @@ async function 启动传输管道(WS接口, url, colo, is_vle) {
 	}).pipeTo(new WritableStream({
 		async write(chunk) {
 			if (首包数据) {
-				首包数据 = false; await 解析标头(chunk, url, colo, is_vle);
+				首包数据 = false; await 解析标头(chunk, url, colo, 协议);
 			} else { if (cancelled) return; if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
 		},
 	}),).catch(close);
-	async function 解析标头(数据, url, colo, is_vle) {
-		const { hostname, port, data, is_udp } = is_vle ? addr_vle(数据) : addr_tro(数据);
+	async function 解析标头(数据, url, colo, 协议) {
+		const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据); console.log("目标", hostname, port, is_udp);
 		let 目标集 = DNS目标集; let 连接成功 = false;
 		const IPs = await 查询反代IP(url, colo); // 只能在认证通过后才启动DNS解析，否则被DDoS攻击会拖垮DNS
 		if (is_udp) {
@@ -76,7 +74,7 @@ async function 启动传输管道(WS接口, url, colo, is_vle) {
 		} catch (e) { close(e, false) } finally { reader.releaseLock(); }
 	}
 }
-function addr_vle(数据) {
+function addr_vl(数据) {
 	if (数据.byteLength < 26) { throw new Error('数据长度不足'); }
 	const V = new Uint8Array(数据);
 	const 提取命令索引 = 18 + V[17]; const cmd = V[提取命令索引];
@@ -90,7 +88,7 @@ function addr_vle(数据) {
 	}
 	return { hostname, port, data: V.subarray(地址索引 + 长度), is_udp: cmd === 2 };
 }
-function addr_tro(数据) {
+function addr_tr(数据) {
 	if (数据.byteLength < 66) { throw new Error('数据长度不足'); }
 	const V = new Uint8Array(数据);
 	const 提取命令索引 = 58; const cmd = V[提取命令索引];
@@ -103,6 +101,18 @@ function addr_tro(数据) {
 	}
 	const 提取端口索引 = 地址索引 + 长度; const port = new DataView(数据, 提取端口索引, 2).getUint16(0);
 	return { hostname, port, data: V.subarray(提取端口索引 + 4), is_udp: cmd === 3 };
+}
+function addr_ss(数据) {
+	const V = new Uint8Array(数据);
+	const 提取地址索引 = 0; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
+	switch (V[提取地址索引]) {
+		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
+		case 3: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
+		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
+		default: throw new Error(`地址类型错误`);
+	}
+	const 提取端口索引 = 地址索引 + 长度; const port = new DataView(数据, 提取端口索引, 2).getUint16(0);
+	return { hostname, port, data: V.subarray(提取端口索引 + 2), is_udp: false };
 }
 async function 查询反代IP(url, colo) {
 	const search = url.search;
@@ -141,4 +151,14 @@ async function params_TXT(searchParams) { return (await Promise.all(searchParams
 async function params_url(searchParams) { return (await Promise.all(searchParams.getAll('url').map(r => url_txt(r)))).flat(); }
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
 import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }];
-const rev = s => s.split('').reverse().join('').toLowerCase(); const AAAA = rev('344:TeN.SsSsUiLmC.PiYxOrP'), VLE = rev('SsElV'), TRO = rev('NaJoRt'); 
+const rev = s => s.split('').reverse().join('').toLowerCase(); const AAAA = rev('344:TeN.SsSsUiLmC.PiYxOrP'), VL = rev('SsElV'), TR = rev('NaJoRt'), SS = 'ss';
+function 创建链接1(hostname, uuid) {
+	const v1 = new URL(`pro-to-col://12345678-1234-1234-1234-123456789012${String.fromCharCode(64)}www.wto.org:443?security=tls&sni=${hostname}&fp=chrome&type=ws&host=${hostname}#CF-VL-TR`);
+	const v2 = new URL(`url://127.0.0.1:80/${uuid}/pro-to-col`); v2.searchParams.set('AAAA', AAAA); v2.searchParams.set('A', `colo.${AAAA}`);
+	v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', v2.pathname + v2.search); return v1.href;
+}
+function 创建链接2(hostname, uuid) {
+	const v1 = new URL(`pro-to-col://bm9uZToxMjM0NTY3OC0xMjM0LTEyMzQtMTIzNC0xMjM0NTY3ODkwMTI${String.fromCharCode(64)}www.wto.org:443#CF-SS`);
+	const v2 = new URL(`url://127.0.0.1:80/${uuid}/pro-to-col`); v2.searchParams.set('AAAA', AAAA); v2.searchParams.set('A', `colo.${AAAA}`);//ech无法导入但可配置
+	v1.searchParams.set('plugin', `v2ray-plugin;mode=websocket;host=${hostname};path=${decodeURIComponent(v2.pathname + v2.search)};tls;mux=0`); return v1.href;
+}
