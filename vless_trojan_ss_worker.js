@@ -10,18 +10,18 @@ export default {
 			}
 			return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 		} catch (err) {
-			console.log(err.stack || err); return new Response(err.stack || err, { status: 500 });
+			console.log(err.stack); return new Response(err.stack, { status: 500 });
 		}
 	},
 };
 async function 升级WS请求(url, ed) {
 	const [客户端, WS接口] = Object.values(new WebSocketPair()); WS接口.accept(); WS接口.binaryType = 'arraybuffer';
 	const 协议 = url.pathname.split('/').pop(); if (协议 === VL) { WS接口.send(new Uint8Array([0, 0]).buffer) };
-	启动传输管道(WS接口, url, ed, 协议).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
+	启动传输管道(WS接口, url, ed, 协议); return new Response(null, { status: 101, webSocket: 客户端 });
 }
 async function 启动传输管道(WS接口, url, ed, 协议) {
 	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false; const abort = new AbortController();
-	const close = (err, print = false) => { if (print) console.log(err.stack || err); if (cancelled) return; cancelled = true; abort.abort(); try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
+	const close = (err, print = false) => { if (print) console.log(err); if (cancelled) return; cancelled = true; abort.abort(); try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
 		start(controller) {
 			WS接口.addEventListener('message', (event) => { if (cancelled) return; controller.enqueue(event.data); }, { signal: abort.signal });
@@ -64,18 +64,18 @@ async function 启动传输管道(WS接口, url, ed, 协议) {
 		if (写入初始数据.length > 0) { await 传输数据.write(写入初始数据); }
 		const reader = TCP接口.readable.getReader({ mode: 'byob' });
 		const BYOB缓冲区大小 = 1024 * 256, 系统最大4KB = 4096, BYOB安全阈值 = BYOB缓冲区大小 - 系统最大4KB;
-		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk;
+		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk; let timeout = TIMEOUTS.read_short;
 		try {
 			while (!cancelled) {
 				const view = new Uint8Array(buffer, offset, 系统最大4KB);
-				const { value, done } = await withTimeout(reader.read(view), TIMEOUTS.read, `TCP read 超时 ${hostname}`); if (done) break;
+				const { value, done } = await withTimeout(reader.read(view), timeout, `TCP read 超时 ${hostname}`); if (done) break; timeout = TIMEOUTS.read_long;
 				buffer = value.buffer; offset += value.byteLength;
 				if (value.byteLength < 系统最大4KB || performance.now() - lastReadTime >= 50 || offset > BYOB安全阈值) {
 					chunk = new Uint8Array(buffer, 0, offset); offset = 0; lastReadTime = performance.now();
 				} else { continue; }
 				if (WS接口.readyState === WebSocket.OPEN) { WS接口.send(chunk); }
 			}
-		} finally { reader.releaseLock(); }
+		} finally { reader.releaseLock(); 传输数据.releaseLock(); 传输数据 = null; }
 	}
 }
 function addr_vl(数据) {
@@ -148,7 +148,7 @@ async function params_A_AAAA(searchParams, type) { return (await Promise.all(sea
 async function params_TXT(searchParams) { return (await Promise.all(searchParams.getAll('TXT').map(r => dns_txt(r, 'TXT')))).flat(); }
 async function params_url(searchParams) { return (await Promise.all(searchParams.getAll('url').map(r => url_txt(r)))).flat(); }
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
-import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }]; const TIMEOUTS = { connect: 1000, read: 60_000, idle: 60_000, maxTTL: 300_000, };
+import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }]; const TIMEOUTS = { connect: 1000, read_long: 180_000, read_short: 20_000 };
 const rev = s => s.split('').reverse().join('').toLowerCase(); const AAAA = rev('344:TeN.SsSsUiLmC.PiYxOrP'), VL = rev('SsElV'), TR = rev('NaJoRt'), SS = rev('sS'), V2 = rev('nIgUlP-yAr2v');
 function sleepReject(ms, msg) { return new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms)); } function withTimeout(promise, ms, message) { return Promise.race([promise, sleepReject(ms, message),]); }
 function 创建链接1(hostname, uuid) {
