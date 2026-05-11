@@ -2,38 +2,42 @@
 
 export default {
 	async fetch(request, env) {
-		const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
-		if (url.pathname.startsWith(路径)) {
-			if (request.headers.get('Upgrade') === 'websocket') { url.search = url.search.replace(/{colo}/g, request.cf.colo).replace(/{country}/g, request.cf.country); return await 升级WS请求(url, request.headers.get('sec-websocket-protocol')); }
-			return new Response(创建链接1(url.hostname, UUID).replace(/pro-to-col/g, VL) + "\n\n" + 创建链接1(url.hostname, UUID).replace(/pro-to-col/g, TR) + "\n\n" + 创建链接2(url.hostname, UUID).replace(/pro-to-col/g, SS), { status: 404 });
+		try {
+			const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
+			if (url.pathname.startsWith(路径)) {
+				if (request.headers.get('Upgrade') === 'websocket') { url.search = url.search.replace(/{colo}/g, request.cf.colo).replace(/{country}/g, request.cf.country); return await 升级WS请求(url, request.headers.get('sec-websocket-protocol')); }
+				return new Response(创建链接1(url.hostname, UUID).replace(/pro-to-col/g, VL) + "\n\n" + 创建链接1(url.hostname, UUID).replace(/pro-to-col/g, TR), { status: 404 }); // + "\n\n" + 创建链接2(url.hostname, UUID).replace(/pro-to-col/g, SS)
+			}
+			return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
+		} catch (err) {
+			console.log(err.stack || err); return new Response(err.stack || err, { status: 500 });
 		}
-		return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 	},
 };
 async function 升级WS请求(url, ed) {
-	const [客户端, WS接口] = Object.values(new WebSocketPair());
-	WS接口.accept(); WS接口.binaryType = 'arraybuffer'; 启动传输管道(WS接口, url, ed).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
+	const [客户端, WS接口] = Object.values(new WebSocketPair()); WS接口.accept(); WS接口.binaryType = 'arraybuffer';
+	const 协议 = url.pathname.split('/').pop(); if (协议 === VL) { WS接口.send(new Uint8Array([0, 0]).buffer) };
+	启动传输管道(WS接口, url, ed, 协议).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
 }
-async function 启动传输管道(WS接口, url, ed) {
-	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false;
-	const close = (err, print = false) => { if (print) console.log(err); if (cancelled) return; cancelled = true; try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
+async function 启动传输管道(WS接口, url, ed, 协议) {
+	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false; const abort = new AbortController();
+	const close = (err, print = false) => { if (print) console.log(err.stack || err); if (cancelled) return; cancelled = true; abort.abort(); try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
 		start(controller) {
-			WS接口.addEventListener('message', (event) => { if (cancelled) return; controller.enqueue(event.data); });
-			WS接口.addEventListener('close', (e) => { cancelled = true; });
-			WS接口.addEventListener('error', (e) => { close(e); });
-			if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
+			WS接口.addEventListener('message', (event) => { if (cancelled) return; controller.enqueue(event.data); }, { signal: abort.signal });
+			WS接口.addEventListener('close', (e) => { if (cancelled) return; controller.close(); close(e); }, { signal: abort.signal });
+			WS接口.addEventListener('error', (e) => { if (cancelled) return; controller.error(e) }, { signal: abort.signal }); // if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
 		},
-		cancel() { cancelled = true; },
+		cancel() { abort.abort(); cancelled = true; },
 	}).pipeTo(new WritableStream({
 		async write(chunk) {
 			if (首包数据) {
-				首包数据 = false; await 解析标头(chunk, url);
+				首包数据 = false; await 解析标头(chunk);
 			} else { if (cancelled) return; if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
 		},
 	}),).catch(close);
-	async function 解析标头(数据, url) {
-		const 协议 = url.pathname.split('/').pop(); const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据);
+	async function 解析标头(数据) {
+		const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据);
 		let 目标集 = DNS目标集; let 连接成功 = false; const IPs = await 查询反代IP(url);
 		if (is_udp) {
 			if (port !== 53) { throw new Error(`UDP请求只支持DNS解析`); } console.log("DNS over TCP", hostname, port);
@@ -45,32 +49,33 @@ async function 启动传输管道(WS接口, url, ed) {
 			const 项 = IPs.get(hostname);
 			try {
 				TCP接口 = connect({ hostname, port });
-				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1000))]);
+				await withTimeout(TCP接口.opened, TIMEOUTS.connect, `TCP opened 超时 ${hostname}`);
 				连接成功 = true; if (项?.失败次数 > 0) { 项.失败次数 = 0; } break;
 			} catch (连接错误) {
+				if (TCP接口?.close) { await TCP接口.close().catch(() => { }); } TCP接口 = null;
 				if (项 && 项.失败次数 >= 0 && ++项.失败次数 >= 10) { IPs.delete(hostname); console.log("多次连接失败，删除反代:", hostname); }
 			}
 		}
 		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port} - 目标集长度：${目标集.length}`);
-		if (协议 === VL) { WS接口.send(new Uint8Array([0, 0]).buffer) };
-		建立传输管道(data, is_udp);
+		建立传输管道(data, is_udp, hostname);
 	}
-	async function 建立传输管道(写入初始数据, is_dns) {
+	async function 建立传输管道(写入初始数据, is_dns, hostname) {
 		传输数据 = TCP接口.writable.getWriter();
 		if (写入初始数据.length > 0) { await 传输数据.write(写入初始数据); }
 		const reader = TCP接口.readable.getReader({ mode: 'byob' });
 		const BYOB缓冲区大小 = 1024 * 256, 系统最大4KB = 4096, BYOB安全阈值 = BYOB缓冲区大小 - 系统最大4KB;
-		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null;
+		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk;
 		try {
-			while (true) {
-				const { value, done } = await reader.read(new Uint8Array(buffer, offset, 系统最大4KB)); if (done) break;
+			while (!cancelled) {
+				const view = new Uint8Array(buffer, offset, 系统最大4KB);
+				const { value, done } = await withTimeout(reader.read(view), TIMEOUTS.read, `TCP read 超时 ${hostname}`); if (done) break;
 				buffer = value.buffer; offset += value.byteLength;
-				if (value.byteLength < 系统最大4KB || performance.now() - lastReadTime >= 50 || offset >= BYOB安全阈值) {
+				if (value.byteLength < 系统最大4KB || performance.now() - lastReadTime >= 50 || offset > BYOB安全阈值) {
 					chunk = new Uint8Array(buffer, 0, offset); offset = 0; lastReadTime = performance.now();
 				} else { continue; }
 				if (WS接口.readyState === WebSocket.OPEN) { WS接口.send(chunk); }
 			}
-		} catch (e) { close(e) } finally { reader.releaseLock(); }
+		} finally { reader.releaseLock(); }
 	}
 }
 function addr_vl(数据) {
@@ -135,16 +140,17 @@ async function getDnsRecord(domain, type) {
 	} return [];
 }
 function ip_to_obj(ip, port) { ip = ip.trim(); if (/.*:.*:.*/.test(ip)) ip = `[${ip}]`; const u = new URL('url://' + ip); return { hostname: u.hostname, port: +(u.port || port) }; }
-async function dns_ip(domain, type) { const u = new URL('url://' + domain); return (await getDnsRecord(u.hostname, type)).map(ip => ip_to_obj(ip, u.port)) }
-async function dns_txt(domain, type) { const u = new URL('url://' + domain); const txt = (await getDnsRecord(u.hostname, type))[0]; return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
-async function url_txt(url) { const u = new URL(url); const txt = await fetch(u.href, { signal: AbortSignal.timeout(2000) }).then(r => r.text()); return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
+async function dns_ip(domain, type) { console.log('dns_ip:', domain, type); const u = new URL('url://' + domain); return (await getDnsRecord(u.hostname, type)).map(ip => ip_to_obj(ip, u.port)) }
+async function dns_txt(domain, type) { console.log('dns_txt:', domain, type); const u = new URL('url://' + domain); const txt = (await getDnsRecord(u.hostname, type))[0]; return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
+async function url_txt(url) { console.log('url_txt:', url); const u = new URL(url); const txt = await fetch(u.href, { signal: AbortSignal.timeout(2000) }).then(r => r.text()); return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port)) }
 async function params_ip(searchParams) { return searchParams.getAll('ip').map(ip => ip_to_obj(ip, 0)); }
 async function params_A_AAAA(searchParams, type) { return (await Promise.all(searchParams.getAll(type).map(r => dns_ip(r, type)))).flat(); }
 async function params_TXT(searchParams) { return (await Promise.all(searchParams.getAll('TXT').map(r => dns_txt(r, 'TXT')))).flat(); }
 async function params_url(searchParams) { return (await Promise.all(searchParams.getAll('url').map(r => url_txt(r)))).flat(); }
 class IPCache { constructor(search) { this.Search = search; this.Time = new Date(1986, 9, 1); this.IPs = new Map(); } }
-import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }];
+import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null; const cacheMap = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }]; const TIMEOUTS = { connect: 1000, read: 60_000, idle: 60_000, maxTTL: 300_000, };
 const rev = s => s.split('').reverse().join('').toLowerCase(); const AAAA = rev('344:TeN.SsSsUiLmC.PiYxOrP'), VL = rev('SsElV'), TR = rev('NaJoRt'), SS = rev('sS'), V2 = rev('nIgUlP-yAr2v');
+function sleepReject(ms, msg) { return new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms)); } function withTimeout(promise, ms, message) { return Promise.race([promise, sleepReject(ms, message),]); }
 function 创建链接1(hostname, uuid) {
 	const v1 = new URL(`pro-to-col://12345678-1234-1234-1234-123456789012${String.fromCharCode(64)}www.wto.org:443?security=tls&sni=${hostname}&fp=chrome&type=ws&host=${hostname}#CF-VL-TR`);
 	const v2 = new URL(`url://127.0.0.1:80/${uuid}/pro-to-col`); v2.searchParams.set('AAAA', AAAA); v2.searchParams.set('A', `{colo}.${AAAA}`);

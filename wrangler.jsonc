@@ -4,8 +4,8 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "cf-nodes-aggregator",
-	"main": "_worker.js",
+	"name": "cf-nodes",
+	"main": "vless.js",
 	"compatibility_date": "2026-04-14",
 	"observability": {
 		"enabled": true
@@ -32,7 +32,8 @@
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
 	"vars": {
-		"API_KEY": "abc123"
+		"API_KEY": "abc123",
+		"UUID": "abc123"
 	},
 	/**
 	 * Static Assets
