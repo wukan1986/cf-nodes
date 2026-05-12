@@ -3,11 +3,13 @@
 export default {
 	async fetch(request, env) {
 		const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
-		if (url.pathname.startsWith(路径)) {
-			if (request.headers.get('Upgrade') === 'websocket') { url.search = url.search.replace(/{colo}/g, request.cf.colo).replace(/{country}/g, request.cf.country); return await 升级WS请求(url, request.headers.get('sec-websocket-protocol')); }
-			return new Response(订阅网页(url.hostname, UUID), { status: 404 });
-		}
-		return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
+		try {
+			if (url.pathname.startsWith(路径)) {
+				if (request.headers.get('Upgrade') === 'websocket') { url.search = url.search.replace(/{colo}/g, request.cf.colo).replace(/{country}/g, request.cf.country); return await 升级WS请求(url, request.headers.get('sec-websocket-protocol')); }
+				return new Response(订阅网页(url.hostname, UUID), { status: 404 });
+			}
+			return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
+		} catch (err) { console.log(err.stack); return new Response(err.stack, { status: 500 }); }
 	},
 };
 async function 升级WS请求(url, ed) {
@@ -16,7 +18,7 @@ async function 升级WS请求(url, ed) {
 }
 async function 启动传输管道(WS接口, url, ed, 协议) {
 	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false;
-	const close = (err, print = false) => { if (print && err) console.log(err); cancelled = true; try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
+	const close = (err, print = false) => { if (print && err) console.log(err.stack); cancelled = true; try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
 		start(controller) {
 			WS接口.addEventListener('message', (e) => { if (cancelled) return; controller.enqueue(e.data) });
