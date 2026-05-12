@@ -9,7 +9,7 @@ export default {
 				return new Response(订阅网页(url.hostname, UUID), { status: 404 });
 			}
 			return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
-		} catch (err) { console.log(err.stack); return new Response(err.stack, { status: 500 }); }
+		} catch (err) { const obj = err.stack || err; console.log(obj); return new Response(obj, { status: 500 }); }
 	},
 };
 async function 升级WS请求(url, ed) {
@@ -18,12 +18,11 @@ async function 升级WS请求(url, ed) {
 }
 async function 启动传输管道(WS接口, url, ed, 协议) {
 	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false;
-	const close = (err, print = false) => { if (print && err) console.log(err.stack); cancelled = true; try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
+	const close = (err, source = 'unknown', print = false) => { if (print && err) console.log(`close [${source}]`, err.stack || err); cancelled = true; try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
 		start(controller) {
 			WS接口.addEventListener('message', (e) => { if (cancelled) return; controller.enqueue(e.data) });
-			WS接口.addEventListener('close', (e) => { cancelled = true; });
-			WS接口.addEventListener('error', (e) => { close(e) }); // if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
+			WS接口.addEventListener('close', (e) => { cancelled = true; });// WS接口.addEventListener('error', (e) => { close(e, 'ws error'); }); // if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
 		},
 		cancel() { cancelled = true; },
 	}).pipeTo(new WritableStream({
@@ -32,7 +31,7 @@ async function 启动传输管道(WS接口, url, ed, 协议) {
 				首包数据 = false; await 解析标头(chunk);
 			} else { if (cancelled) return; if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
 		},
-	}),).catch(close);
+	}),).catch(err => close(err, 'pipeTo'));
 	async function 解析标头(数据) {
 		const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据);
 		let 目标集 = DNS目标集; let 连接成功 = false; const IPs = await 查询反代IP(url);
@@ -72,7 +71,7 @@ async function 启动传输管道(WS接口, url, ed, 协议) {
 				} else { continue; }
 				if (WS接口.readyState === WebSocket.OPEN) { WS接口.send(chunk); }
 			}
-		} catch (e) { close(e) } finally { reader.releaseLock(); }
+		} catch (e) { close(e, 'pipe transport') } finally { reader.releaseLock(); }
 	}
 }
 function addr_vl(数据) {
