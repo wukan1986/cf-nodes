@@ -1,11 +1,11 @@
-﻿const TLS下认证可简化 = '支持中文密钥';
+﻿const TLS下认证可简化 = '芝麻开门';
 
 export default {
 	async fetch(request, env) {
 		const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
 		try {
 			if (url.pathname.startsWith(路径)) {
-				if (request.headers.get('Upgrade') === 'websocket') { url.search = url.search.replace(/{colo}/g, request.cf.colo).replace(/{country}/g, request.cf.country); return await 升级WS请求(url, request.headers.get('sec-websocket-protocol')); }
+				if (request.headers.get('Upgrade') === 'websocket') { url.search = url.search.replace(/{colo}/g, request.cf.colo); return await 升级WS请求(url, request.headers.get('sec-websocket-protocol')); }
 				return new Response(订阅网页(url.hostname, UUID), { status: 404 });
 			}
 			return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
@@ -13,28 +13,26 @@ export default {
 	},
 };
 async function 升级WS请求(url, ed) {
-	const [客户端, WS接口] = Object.values(new WebSocketPair()); WS接口.accept(); WS接口.binaryType = 'arraybuffer';
-	const 协议 = url.pathname.split('/').pop(); 启动传输管道(WS接口, url, ed, 协议).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
+	const state = { cancelled: false }; const 协议 = url.pathname.split('/').pop(); const [客户端, WS接口] = Object.values(new WebSocketPair()); WS接口.accept(); WS接口.binaryType = 'arraybuffer';
+	WS接口.addEventListener('close', (e) => { state.cancelled = true; }); WS接口.addEventListener('error', (e) => { state.cancelled = true; try { WS接口?.close(); } catch { } });//addEventListener提前
+	启动传输管道(WS接口, url, ed, 协议, state).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
 }
-async function 启动传输管道(WS接口, url, ed, 协议) {
-	let TCP接口, 传输数据, 首包数据 = true; let cancelled = false;
-	const close = (err, source = 'unknown', print = false) => { if (print && err) console.log(`close [${source}]`, err.stack || err); cancelled = true; try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
+async function 启动传输管道(WS接口, url, ed, 协议, state) {
+	let TCP接口, 传输数据, 首包数据 = true; const close = (err, source = 'unknown', print = false) => { if (print && err) console.log(`close [${source}]`, err.stack || err); state.cancelled = true; try { TCP接口?.close(); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
 		start(controller) {
-			WS接口.addEventListener('message', (e) => { if (cancelled) return; controller.enqueue(e.data) });
-			WS接口.addEventListener('close', (e) => { cancelled = true; });// WS接口.addEventListener('error', (e) => { close(e, 'ws error'); }); // if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
+			WS接口.addEventListener('message', (e) => { if (state.cancelled) return; controller.enqueue(e.data) });// if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
 		},
-		cancel() { cancelled = true; },
+		cancel() { state.cancelled = true; },
 	}).pipeTo(new WritableStream({
 		async write(chunk) {
 			if (首包数据) {
 				首包数据 = false; await 解析标头(chunk);
-			} else { if (cancelled) return; if (传输数据?.desiredSize == null) return; await 传输数据.write(chunk); }
+			} else { if (state.cancelled) return; if (传输数据?.desiredSize == null) return; try { await 传输数据.write(chunk); } catch (err) { close(err, 'write'); } }
 		},
 	}),).catch(err => close(err, 'pipeTo'));
 	async function 解析标头(数据) {
-		const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据);
-		let 目标集 = DNS目标集; let 连接成功 = false; const IPs = await 查询反代IP(url);
+		if (state.cancelled) return; let 目标集 = DNS目标集; let 连接成功 = false; const IPs = await 查询反代IP(url); const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname, port, data, is_udp } = addrFuncMap[协议](数据);
 		if (is_udp) {
 			if (port !== 53) { throw new Error(`UDP请求只支持DNS解析`); } console.log("DNS over TCP", hostname, port);
 		} else {
@@ -42,7 +40,7 @@ async function 启动传输管道(WS接口, url, ed, 协议) {
 			const skip = url.searchParams.get('skip') === 'true'; if (skip) 目标集 = 目标集.slice(1);
 		}
 		for (const { hostname, port } of 目标集) {
-			const 项 = IPs.get(hostname);
+			if (state.cancelled) break; const 项 = IPs.get(hostname);
 			try {
 				TCP接口 = connect({ hostname, port });
 				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1000))]);
@@ -63,7 +61,7 @@ async function 启动传输管道(WS接口, url, ed, 协议) {
 		const BYOB缓冲区大小 = 1024 * 256, 系统最大4KB = 4096, BYOB安全阈值 = BYOB缓冲区大小 - 系统最大4KB;
 		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null;
 		try {
-			while (true) {
+			while (!state.cancelled) {
 				const { value, done } = await reader.read(new Uint8Array(buffer, offset, 系统最大4KB)); if (done) break;
 				buffer = value.buffer; offset += value.byteLength;
 				if (value.byteLength < 系统最大4KB || performance.now() - lastReadTime >= 50 || offset >= BYOB安全阈值) {
