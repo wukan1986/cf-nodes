@@ -18,7 +18,7 @@ async function 升级WS请求(url, ed) {
 	启动传输管道(WS接口, url, ed, 协议, state).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
 }
 async function 启动传输管道(WS接口, url, ed, 协议, state) {
-	let TCP接口, 传输数据, 首包数据 = true; const close = (err, source = 'unknown', print = false) => { if (print && err) console.log(`close [${source}]`, err.stack || err); state.cancelled = true; try { TCP接口?.close()?.catch(() => {}); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
+	let TCP接口, 传输数据, 首包数据 = true; const close = (err, source = 'unknown', print = false) => { if (print && err) console.log(`close [${source}]`, err.stack || err); state.cancelled = true; try { TCP接口?.close()?.catch(() => { }); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
 		start(controller) {
 			WS接口.addEventListener('message', (e) => { if (state.cancelled) return; try { controller.enqueue(e.data); } catch { } });// if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
@@ -52,7 +52,7 @@ async function 启动传输管道(WS接口, url, ed, 协议, state) {
 		}
 		if (!连接成功) throw new Error(`无法连接到目标服务器: ${hostname}:${port} - 目标集长度：${目标集.length}`);
 		if (协议 === VL) { if (WS接口.readyState === WebSocket.OPEN) WS接口.send(new Uint8Array([0, 0]).buffer) };
-		建立传输管道(data, is_udp).catch(() => {});
+		建立传输管道(data, is_udp).catch(() => { });
 	}
 	async function 建立传输管道(写入初始数据, is_dns) {
 		传输数据 = TCP接口.writable.getWriter();
@@ -113,7 +113,7 @@ function addr_ss(数据) {
 async function 查询反代IP(url) {
 	const search = url.search; let cache = cacheMap.get(search); if (!cache) { cache = new IPCache(search); cacheMap.set(search, cache); }
 	const IPs = cache.IPs; if (正在刷新) return IPs; const 当前时间 = new Date(); const 分钟差 = (当前时间.getTime() - cache.Time.getTime()) / 60000;
-	if (IPs.size >= 15 || 分钟差 <= 15) return IPs; 正在刷新 = true; console.log('初始 IP总量:', IPs.size);
+	if (IPs.size >= 15) return IPs; if (IPs.size === 0 && 分钟差 < 2) return IPs; 正在刷新 = true; console.log('初始 IP总量:', IPs.size);
 	try {
 		(await params_A_AAAA(url.searchParams, 'AAAA')).map(({ hostname, port }) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('AAAA=IP总量:', IPs.size);
 		(await params_A_AAAA(url.searchParams, 'A')).map(({ hostname, port }) => { IPs.has(hostname) || IPs.set(hostname, { 端口: port, 失败次数: 0 }) }); console.log('A=IP总量:', IPs.size);
