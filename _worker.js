@@ -1111,6 +1111,7 @@ function ClashObj(proxies) {
 			},
 			"nameserver-policy": {
 				[ECH_SNI]: ECH_DNS,
+				'+.workers.dev': ECH_DNS,
 			},
 		},
 		proxies: [],
