@@ -328,10 +328,18 @@ function 更新链接列表(addresses, nodes) {
 function 调整链接列表(links) {
 	return links.map(i => 调整协议链接(i));
 }
+function countryCodeToFlag(countryCode) {
+	if (!countryCode || typeof countryCode !== 'string') return '';
+	const code = countryCode.trim().toUpperCase();
+	// 仅支持两位 ISO 国家码
+	if (!/^[A-Z]{2}$/.test(code)) return '';
+	return code.split('').map(char => String.fromCodePoint(127397 + char.charCodeAt())).join('');
+}
 
 function hostnames_limit_region(region_hostname, limit_region, limit) {
 	const regionMap = new Map();
 	for (const [limit, region] of limit_region) {
+		const flag = countryCodeToFlag(region);
 		const hostnames_part = region_hostname.get(region);
 		if (!hostnames_part) {
 			regionMap.set(region, []);
@@ -339,7 +347,7 @@ function hostnames_limit_region(region_hostname, limit_region, limit) {
 			const name = REGION_MAP[region] || '未知地区';
 			// IP不随机
 			const shuffled = Array.from(hostnames_part)//.sort(() => Math.random() - 0.5);
-			const limitedList = shuffled.slice(0, limit).map((item, index) => ({ ...item, remark: `${item.hash} ${name} ${index + 1}` }));
+			const limitedList = shuffled.slice(0, limit).map((item, index) => ({ ...item, remark: `${flag}${item.hash}${name}${(index + 1).toString().padStart(2, '0')}` }));
 			regionMap.set(region, limitedList);
 		}
 	}
@@ -1114,12 +1122,12 @@ function ClashObj(proxies) {
 				'+.workers.dev': ECH_DNS,
 			},
 		},
-		proxies: [],
+		proxies: [{ name: "☑️手动 → ♻️自动", type: "socks5", server: "127.0.0.1", port: 65535 }],
 		"proxy-groups": [
 			{
 				name: "🚀 节点选择",
 				type: "select",
-				proxies: ["♻️ 自动选择", "☑️ 手动切换", "🔮 轮询", "DIRECT"]
+				proxies: ["♻️ 自动选择", "🔮 轮询", "DIRECT"]
 			},
 			{
 				name: "♻️ 自动选择",
@@ -1127,12 +1135,7 @@ function ClashObj(proxies) {
 				url: "https://www.google.com/generate_204",
 				interval: 300,
 				tolerance: 50,
-				proxies: []
-			},
-			{
-				name: "☑️ 手动切换",
-				type: "select",
-				proxies: []
+				proxies: ["☑️手动 → ♻️自动",]
 			},
 			{
 				name: "🔮 轮询",
@@ -1174,7 +1177,6 @@ function ClashObj(proxies) {
 	const names = proxies.map(proxy => proxy.name);
 	clash["proxy-groups"][1].proxies.push(...names);
 	clash["proxy-groups"][2].proxies.push(...names);
-	clash["proxy-groups"][3].proxies.push(...names);
 
 	return clash;
 }
