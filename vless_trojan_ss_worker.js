@@ -39,7 +39,7 @@ async function 启动传输管道(WS接口, url, ed, 协议, state, IP缓存) {
 			if (state.cancelled) break; const 项 = IP缓存.get(hostname);
 			try {
 				TCP接口 = connect({ hostname, port: port || PORT });
-				await Promise.race([TCP接口.opened, new Promise((_, reject) => setTimeout(() => reject(new Error(`连接超时`)), 1000))]);
+				await withTimeout(TCP接口.opened, 1000, `连接超时`);
 				连接成功 = true; 项?.success(); break;
 			} catch (连接错误) {
 				if (TCP接口?.close) { TCP接口.close().catch(() => { }); } TCP接口 = null;
@@ -54,17 +54,17 @@ async function 启动传输管道(WS接口, url, ed, 协议, state, IP缓存) {
 		传输数据 = TCP接口.writable.getWriter(); if (写入初始数据.length > 0) { await 传输数据.write(写入初始数据); }
 		const reader = TCP接口.readable.getReader({ mode: 'byob' });
 		const BYOB缓冲区大小 = 1024 * 256, 系统最大4KB = 4096, BYOB安全阈值 = BYOB缓冲区大小 - 系统最大4KB;
-		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null;
+		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null; let timeout = 10_000;
 		try {
 			while (!state.cancelled) {
-				const { value, done } = await reader.read(new Uint8Array(buffer, offset, 系统最大4KB)); if (done) break;
-				buffer = value.buffer; offset += value.byteLength;
+				const { value, done } = await withTimeout(reader.read(new Uint8Array(buffer, offset, 系统最大4KB)), timeout, '读超时'); if (done) break;
+				timeout = Math.min(timeout + 10_000, 60_000); buffer = value.buffer; offset += value.byteLength;
 				if (value.byteLength < 系统最大4KB || performance.now() - lastReadTime >= 50 || offset >= BYOB安全阈值) {
 					chunk = new Uint8Array(buffer, 0, offset); offset = 0; lastReadTime = performance.now();
 				} else { continue; }
 				if (WS接口.readyState === WebSocket.OPEN) { WS接口.send(chunk); }
 			}
-		} catch (e) { close(e, 'pipe transport') } finally { reader.releaseLock(); }
+		} catch (e) { close(e, 'pipe transport') } finally { try { reader.releaseLock(); } catch { } }
 	}
 }
 function addr_vl(数据) {
@@ -141,3 +141,4 @@ function 基础链接2(hostname, path, is_tls, protocol) { const v1 = new URL(`p
 function 订阅网页(hostname, uuid) { const path = ws_path(uuid, AAAA); return `=== TLS ===\n\n${基础链接1(hostname, path, true, VL)}\n\n${基础链接1(hostname, path, true, TR)}\n\n${基础链接2(hostname, path, true, SS)}\n\n\n=== NO TLS ===\n\n${基础链接1(hostname, path, false, VL)}\n\n${基础链接2(hostname, path, false, SS)}`; }
 class Target { constructor(hostname, port, type, failCount = 0) { this.hostname = hostname; this.port = port; this.type = type; this.failCount = failCount; this.MAX_FAIL = 10; }; success() { this.failCount /= 3; }; fail() { ++this.failCount; return this.shouldRemove(); }; shouldRemove() { if (this.type === 'ip') return false; return this.failCount >= this.MAX_FAIL; }; }
 function debug_log(...data) { if (DEBUG) { console.log(...data); } }
+const withTimeout = (promise, ms, message) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),]);
