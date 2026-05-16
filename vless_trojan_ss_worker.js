@@ -51,20 +51,20 @@ async function 启动传输管道(WS接口, url, ed, 协议, state, IP缓存) {
 	async function 建立传输管道(写入初始数据, is_dns, 项) {
 		传输数据 = TCP接口.writable.getWriter(); if (写入初始数据.length > 0) { await 传输数据.write(写入初始数据); }
 		const reader = TCP接口.readable.getReader({ mode: 'byob' });
-		const BYOB缓冲区大小 = 1024 * 256, 系统最大4KB = 4096, BYOB安全阈值 = BYOB缓冲区大小 - 系统最大4KB;
-		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null; let timeout = TIMEOUT_10;
+		const BYOB缓冲区大小 = 1024 * 512, 本地最大4KB = 1024 * 64, BYOB安全阈值 = BYOB缓冲区大小 - 本地最大4KB;
+		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null; let timeout = TIMEOUT_30;
 		try {
 			while (!state.cancelled) {
-				const { value, done } = await withTimeout(reader.read(new Uint8Array(buffer, offset, 系统最大4KB)), timeout, '读超时'); if (done) break;
-				if (timeout <= TIMEOUT_20) { 项?.success(); } if (timeout < TIMEOUT_60) { timeout += TIMEOUT_10; }
+				const { value, done } = await withTimeout(reader.read(new Uint8Array(buffer, offset, 本地最大4KB)), timeout, '读超时'); if (done) break;
+				if (timeout < TIMEOUT_60) { timeout += TIMEOUT_10; } if (timeout < TIMEOUT_60) { 项?.success(); }
 				buffer = value.buffer; offset += value.byteLength;
-				if (value.byteLength < 系统最大4KB || performance.now() - lastReadTime >= 50 || offset >= BYOB安全阈值) {
+				if (value.byteLength < 本地最大4KB || performance.now() - lastReadTime >= 50 || offset >= BYOB安全阈值) {
 					chunk = new Uint8Array(buffer, 0, offset); offset = 0; lastReadTime = performance.now();
 				} else { continue; }
 				if (WS接口.readyState === WebSocket.OPEN) { WS接口.send(chunk); }
 			}
 		} catch (e) {
-			if (timeout === TIMEOUT_10 && 项?.fail()) { IP缓存.delete(项.hostname); console.log("初读就超时，质量差，删除反代:", 项.hostname, 项.port); }
+			if (timeout === TIMEOUT_30 && 项?.fail()) { IP缓存.delete(项.hostname); console.log("初读就超时，质量差，删除反代:", 项.hostname, 项.port); }
 			close(e, 'pipe transport');
 		} finally { try { reader.releaseLock(); } catch { } }
 	}
@@ -135,7 +135,7 @@ async function get_ips_by_url(url, ctx, ttl = 60) {
 	const params = new URL(url).searchParams; const tasks = Array.from(params, ([key, value]) => { return get_ips_by_param_cache(key, value, ctx, ttl).catch(err => { return []; }); }); const ips = (await Promise.all(tasks)).flat();
 	正在刷新 = false; return ips;
 }
-import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null, DEBUG = false; const IP缓存的映射 = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }]; const TIMEOUT_10 = 10_000, TIMEOUT_20 = 20_000, TIMEOUT_60 = 60_000;
+import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null, DEBUG = false; const IP缓存的映射 = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }]; const TIMEOUT_10 = 10_000, TIMEOUT_30 = 30_000, TIMEOUT_60 = 60_000;
 const rev = s => s.split('').reverse().join('').toLowerCase(); const AAAA = rev('344:TeN.SsSsUiLmC.PiYxOrP'), VL = rev('SsElV'), TR = rev('NaJoRt'), SS = rev('sS'), V2 = rev('nIgUlP-yAr2v');
 function ws_path(uuid, AAAA) { const v2 = new URL(`url://127.0.0.1:80/${uuid}/pro-to-col`); /*v2.searchParams.set('AAAA', AAAA);*/ v2.searchParams.set('A', `{colo}.${AAAA}`); return decodeURIComponent(v2.pathname + v2.search); }
 function 基础链接1(hostname, path, is_tls, protocol) { const v1 = new URL(`pro-to-col://12345678-1234-1234-1234-123456789012${String.fromCharCode(64)}www.wto.org:${is_tls ? 443 : 80}?security=${is_tls ? 'tls' : 'none'}&sni=${hostname}&fp=chrome&type=ws&host=${hostname}#CF-pro-to-col`); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', path); return v1.href.replace(/pro-to-col/g, protocol); };
