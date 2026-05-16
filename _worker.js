@@ -1122,23 +1122,23 @@ function ClashObj(proxies) {
 				'+.workers.dev': ECH_DNS,
 			},
 		},
-		proxies: [{ name: "☑️手动 → ♻️自动", type: "socks5", server: "127.0.0.1", port: 65535 }],
+		proxies: [{ name: "🔒锁定→♻️自动", type: "socks5", server: "127.0.0.1", port: 65535 }],
 		"proxy-groups": [
 			{
-				name: "🚀 节点选择",
+				name: "🚀节点选择",
 				type: "select",
-				proxies: ["♻️ 自动选择", "🔮 轮询", "DIRECT"]
+				proxies: ["♻️自动选择", "🔮轮询", "DIRECT"]
 			},
 			{
-				name: "♻️ 自动选择",
+				name: "♻️自动选择",
 				type: "url-test",
 				url: "https://www.google.com/generate_204",
 				interval: 300,
 				tolerance: 50,
-				proxies: ["☑️手动 → ♻️自动",]
+				proxies: ["🔒锁定→♻️自动",]
 			},
 			{
-				name: "🔮 轮询",
+				name: "🔮轮询",
 				type: "load-balance",
 				url: "https://www.google.com/generate_204",
 				interval: 300,
@@ -1147,10 +1147,15 @@ function ClashObj(proxies) {
 				proxies: []
 			},
 			{
-				name: "🐟 漏网之鱼",
+				name: "🐟漏网之鱼",
 				type: "select",
-				proxies: ["🚀 节点选择", "DIRECT", "REJECT"]
-			}
+				proxies: ["🚀节点选择", "DIRECT", "REJECT"]
+			},
+			{
+				name: "☁️Cloudflare",
+				type: "select",
+				proxies: ["DIRECT", "🚀节点选择"]
+			},
 		],
 		rules: [
 			"GEOSITE,private,DIRECT",
@@ -1161,11 +1166,13 @@ function ClashObj(proxies) {
 			"GEOSITE,google-cn,DIRECT",
 			"GEOSITE,steam@cn,DIRECT",
 			"GEOSITE,category-games@cn,DIRECT",
-			"GEOSITE,gfw,🚀 节点选择",
-			"GEOIP,telegram,🚀 节点选择",
+			"DOMAIN-SUFFIX,workers.dev,🚀节点选择", // 一定要用
+			"GEOSITE,cloudflare,☁️Cloudflare", // 管理面板最好不用
+			"GEOSITE,gfw,🚀节点选择",
+			"GEOIP,telegram,🚀节点选择",
 			"GEOIP,private,DIRECT",
 			"GEOIP,CN,DIRECT",
-			"MATCH,🐟 漏网之鱼"
+			"MATCH,🐟漏网之鱼"
 		]
 	}
 
