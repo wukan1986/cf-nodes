@@ -1,12 +1,12 @@
 # cf-nodes
-将多个cf的节点的`uuid`和`sni`聚合到一个订阅中
+将多个cf的节点的`uuid`/`sni`/`path`聚合到一个订阅中。含`订阅器`、`订阅转换后端`、`短链接`，另附`简化版节点脚本`。
 
 每个账号`10w请求`限制，注册多个CF账号后，除非统一`UUID`，否则无法利用`edgetunnel`的单面板管理多节点
 
-所以，我提供了一个工具，用来归集各组`UUID`和`SNI`，实现一个订阅，平均调用所有的节点
+所以，我提供了一个工具，用来归集各组`uuid`/`sni`/`path`，实现一个订阅，平均调用所有的节点
 
 ## 原理
-目前大家部署的`edgetunnel`和`cfnew`等`CF`项目，只要提供可用的`vless/trojan/ss`链接，将此链接中的`hostname`、`port`修改成优选的IP或域名，就可以生成无数新链接
+目前大家部署的`edgetunnel`和`cfnew`等`CF`项目，只要提供可用的`vless/trojan/ss`链接，将此链接中的`hostname`、`port`修改成优选的IP/域名，就可以生成无数新链接
 
 ## 如何获取vless链接
 1. `edgetunnel`的后台面板直接提供了原始`vless/trojan/ss`链接
@@ -23,7 +23,7 @@
 | security=tls | tls:true | 传输层安全(TLS):tls | |
 | security=none | tls:false | 传输层安全(TLS): | |
 | sni=| servername | SNI | xxx.xxxx.de5.net | 
-| host=| Host | 伪装域名(host) | 转成clash时host丢弃用的sni的值 |
+| host=| Host | 伪装域名(host) | 转成clash时host丢弃，用的sni的值 |
 | ech= | ech-opts: {enable: true, query-server-name: cloudflare-ech.com} | EchCofigList | cloudflare-ech.com+https://223.5.5.5/dns-query |
 
 ## 部署方法
@@ -41,7 +41,7 @@
 ## 使用方法
 1. 访问`https://*.pages.dev/home`，进入订阅页面。提前准备好可用的节点文件，然后依次设置，观察链接是否可用
 2. 访问`https://*.pages.dev/link`，进入短链接管理。提供了基础的短链接功能
-2. 访问`https://*.pages.dev/sub`，与公开的订阅转换服务参数相同，但只识别`url`、`scv`参数
+2. 访问`https://*.pages.dev/sub`，与公开的订阅转换服务参数相同，但只识别`url`参数
 
 ## 额外功能（抓取优选信息）
 1. 例如：访问`https://*.pages.dev/extract?hostnames=https://raw.githubusercontent.com/hc990275/yx/main/cfyxip.txt&region=HK-JP-US&limit=10-6-10`，抓取IP信息
@@ -78,8 +78,8 @@ console.log(url2.href);
 2. /extract?hostnames=
 3. /v2ray?hostnames=&nodes=
 4. /base64?hostnames=&nodes=
-6. /sub?url=
-7. 链接管理器。类型为`拼接`。例如可以实现多个优选列表合并成一个
+5. /sub?url=
+6. 链接管理器。类型为`拼接`。例如可以实现多个优选列表合并成一个
 
 ```
 
@@ -95,7 +95,7 @@ console.log(url2.href);
 3. CF节点，优选IP(优势是可选地区，节点延时小，但稳定性差，需要不定期重新订阅)
 	- `hostnames`选择第二项`优选IP(地区分组)`，`region=HK-JP-US&limit=10-6-10`,`foramt=clash`
 
-一般常用优选域名；特殊需求用优选IP的地区分组；VPS节点用于代替CF节点不适用的情况，如`git clone`
+一般常用优选域名；特殊需求用优选IP的地区分组；VPS节点用于代替CF节点不适用的情况，如`git clone`等大流量下载等
 
 ## 其他问题
 1. `workers.dev`地址无法访问怎么办？
@@ -123,7 +123,7 @@ http-server
 
 ### 订阅转换二次开发
 1. 将一条订阅链接，复制到第三方服务中，生成`clash.yaml`文件,保存下来
-2. 将一条订阅链接，复制到`http://127.0.0.1:8080/link`中，复制随机生成的链接`A`
+2. 将一条订阅链接，复制到`http://127.0.0.1:8787/link`中，复制随机生成的链接`A`
 3. 访问`http://127.0.0.1:8787/home`，将`A`粘贴到`nodes`字段中
 4. 将输出格式改成`clash`，输出框会有新链接`B`，用浏览器访问`B`，观察`yaml`文件
 5. 比较两次的`yaml`文件，找出不同的地方，在`_worker.js`中添加对应的逻辑，导入到软件中验证是否可用
@@ -135,7 +135,7 @@ http-server
 虽然在`https://*.pages.dev/cdn-cgi/trace`中`sni=plaintext`,但在`Wireshark`中使用`tls.handshake.extensions_server_name`过滤可以看到`SNI=cloudflare-ech.com`
 
 ## 如何自建CF节点/ProxyIP节点
-参考`自建节点指南.md`
+参考[`自建节点指南.md`](自建节点指南.md)
 
 ## 参考学习
 1. [cmliu/edgetunnel](https://github.com/cmliu/edgetunnel)
