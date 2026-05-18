@@ -2,7 +2,6 @@
 
 export default {
 	async fetch(request, env, ctx) {
-		console.log('request:', isIpInCloudflareRange(ipv4ToInt("172.67.80.44"), rangesV4));
 		const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
 		if (!url.pathname.startsWith(路径)) return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 		if (request.headers.get('Upgrade') !== 'websocket') return new Response(订阅网页(url.hostname, UUID), { status: 404 });
