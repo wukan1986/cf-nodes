@@ -1122,7 +1122,7 @@ function ClashObj(proxies) {
 				'+.workers.dev': ECH_DNS,
 			},
 		},
-		proxies: [{ name: "--🔒锁定->♻️自动--", type: "socks5", server: "127.0.0.1", port: 65535 }],
+		proxies: [{ name: ".🔒锁定 -> ♻️自动", type: "socks5", server: "127.0.0.1", port: 65535 }],
 		"proxy-groups": [
 			{
 				name: "🚀节点选择",
@@ -1188,7 +1188,7 @@ function ClashObj(proxies) {
 
 	clash.proxies.push(...proxies);
 	const names = proxies.map(proxy => proxy.name);
-	clash["proxy-groups"][1].proxies.push("--🔒锁定->♻️自动--", ...names);
+	clash["proxy-groups"][1].proxies.push(".🔒锁定 -> ♻️自动", ...names);
 
 	return clash;
 }
