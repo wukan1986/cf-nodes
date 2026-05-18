@@ -347,7 +347,7 @@ function hostnames_limit_region(region_hostname, limit_region, limit) {
 			const name = REGION_MAP[region] || '未知地区';
 			// IP不随机
 			const shuffled = Array.from(hostnames_part)//.sort(() => Math.random() - 0.5);
-			const limitedList = shuffled.slice(0, limit).map((item, index) => ({ ...item, remark: `${flag}${item.hash}${name}${(index + 1).toString().padStart(2, '0')}` }));
+			const limitedList = shuffled.slice(0, limit).map((item, index) => ({ ...item, remark: `${flag}${item.hash === region ? "" : item.hash}${name}${(index + 1).toString().padStart(2, '0')}` }));
 			regionMap.set(region, limitedList);
 		}
 	}
@@ -1122,12 +1122,12 @@ function ClashObj(proxies) {
 				'+.workers.dev': ECH_DNS,
 			},
 		},
-		proxies: [{ name: "🔒锁定→♻️自动", type: "socks5", server: "127.0.0.1", port: 65535 }],
+		proxies: [{ name: "--🔒锁定->♻️自动--", type: "socks5", server: "127.0.0.1", port: 65535 }],
 		"proxy-groups": [
 			{
 				name: "🚀节点选择",
 				type: "select",
-				proxies: ["♻️自动选择", "🔮轮询", "DIRECT"]
+				proxies: ["♻️自动选择", "🔮轮询", "🇭🇰香港自动", "🇹🇼台湾自动", "🇯🇵日本自动", "🇰🇷韩国自动", "🇸🇬新加坡自动", "🇺🇸美国自动", "DIRECT"]
 			},
 			{
 				name: "♻️自动选择",
@@ -1135,7 +1135,7 @@ function ClashObj(proxies) {
 				url: "https://www.google.com/generate_204",
 				interval: 300,
 				tolerance: 50,
-				proxies: ["🔒锁定→♻️自动",]
+				proxies: []
 			},
 			{
 				name: "🔮轮询",
@@ -1144,17 +1144,23 @@ function ClashObj(proxies) {
 				interval: 300,
 				tolerance: 50,
 				strategy: "round-robin",
-				proxies: []
+				"include-all": true,
 			},
 			{
 				name: "🐟漏网之鱼",
 				type: "select",
-				proxies: ["🚀节点选择", "DIRECT", "REJECT"]
+				proxies: ["🚀节点选择", "🇭🇰香港自动", "🇹🇼台湾自动", "🇯🇵日本自动", "🇰🇷韩国自动", "🇸🇬新加坡自动", "🇺🇸美国自动", "DIRECT", "REJECT"]
 			},
+			{ name: "🇭🇰香港自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|HK|香港", },
+			{ name: "🇹🇼台湾自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|TW|台湾", },
+			{ name: "🇯🇵日本自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|JP|日本", },
+			{ name: "🇰🇷韩国自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|KR|韩国", },
+			{ name: "🇸🇬新加坡自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|SG|新加坡", },
+			{ name: "🇺🇸美国自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|US|美国", },
 			{
 				name: "☁️Cloudflare",
 				type: "select",
-				proxies: ["DIRECT", "🚀节点选择"]
+				proxies: ["DIRECT", "🚀节点选择", "🇭🇰香港自动", "🇹🇼台湾自动", "🇯🇵日本自动", "🇰🇷韩国自动", "🇸🇬新加坡自动", "🇺🇸美国自动"]
 			},
 		],
 		rules: [
@@ -1182,8 +1188,7 @@ function ClashObj(proxies) {
 
 	clash.proxies.push(...proxies);
 	const names = proxies.map(proxy => proxy.name);
-	clash["proxy-groups"][1].proxies.push(...names);
-	clash["proxy-groups"][2].proxies.push(...names);
+	clash["proxy-groups"][1].proxies.push("--🔒锁定->♻️自动--", ...names);
 
 	return clash;
 }
