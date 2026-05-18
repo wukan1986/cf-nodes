@@ -28,19 +28,19 @@ async function 启动传输管道(WS接口, url, ed, 协议, state, IP缓存) {
 		},
 	}),).catch(err => close(err, 'pipeTo'));
 	async function 解析标头(数据) {
-		if (state.cancelled) return; let 目标集 = DNS目标集; let 连接成功 = false; let 项 = null; const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname: HOSTNAME, port: PORT, data, is_udp } = addrFuncMap[协议](数据);
+		if (state.cancelled) return; let 目标集 = DNS目标集, 连接成功 = false, 项 = null, timeout = 2_000; const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname: HOSTNAME, port: PORT, data, is_udp } = addrFuncMap[协议](数据);
 		if (is_udp) {
 			if (PORT !== 53) { throw new Error(`UDP请求只支持DNS解析`); } console.log("DNS over TCP", HOSTNAME, PORT);
 		} else {
-			目标集 = [new Target(HOSTNAME, PORT, 'ip'), ...Array.from(IP缓存.values()).slice(0, 20).sort(() => Math.random() - 0.5).slice(0, 10)];
+			目标集 = [new Target(HOSTNAME, PORT, 'ip'), ...Array.from(IP缓存.values()).slice(0, 20).sort(() => Math.random() - 0.5).slice(0, 8)];
 			const skip = url.searchParams.get('skip') === 'true'; if (skip) 目标集 = 目标集.slice(1);
 		}
 		for (const { hostname, port } of 目标集) {
 			if (state.cancelled) break; 项 = IP缓存.get(hostname);
 			try {
-				TCP接口 = connect({ hostname, port: port || PORT }); await withTimeout(TCP接口.opened, 1000, `连接超时`); 连接成功 = true; break;
+				TCP接口 = connect({ hostname, port: port || PORT }); await withTimeout(TCP接口.opened, timeout, `连接超时`); 连接成功 = true; break;
 			} catch (连接错误) {
-				if (TCP接口?.close) { TCP接口.close().catch(() => { }); } TCP接口 = null;
+				timeout = 1_000; if (TCP接口?.close) { TCP接口.close().catch(() => { }); } TCP接口 = null;
 				if (项?.fail()) { IP缓存.delete(项.hostname); console.log("多次连接失败，删除反代:", 项.hostname, 项.port); }
 			}
 		}
