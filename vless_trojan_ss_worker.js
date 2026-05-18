@@ -2,45 +2,48 @@
 
 export default {
 	async fetch(request, env, ctx) {
+		console.log('request:', isIpInCloudflareRange(ipv4ToInt("172.67.80.44"), rangesV4));
 		const url = new URL(request.url); if (!路径) { UUID = env.UUID || TLS下认证可简化; 路径 = `/${encodeURIComponent(UUID)}`; }
 		if (!url.pathname.startsWith(路径)) return new Response(`Not Found. ${request.cf.country}, ${request.cf.region}, ${request.cf.colo}`, { status: 404 });
 		if (request.headers.get('Upgrade') !== 'websocket') return new Response(订阅网页(url.hostname, UUID), { status: 404 });
-		DEBUG = url.searchParams.get('debug') === 'true'; url.search = url.search.replace(/{colo}/g, request.cf.colo); const IP缓存 = await 更新IP缓存(url, ctx, 300); return await 升级WS请求(url, request.headers.get('sec-websocket-protocol'), IP缓存);
+		DEBUG = url.searchParams.get('debug') === 'true'; url.search = url.search.replace(/{colo}/g, request.cf.colo); return await 升级WS请求(url, request.headers.get('sec-websocket-protocol'), ctx);
 	},
 };
-async function 升级WS请求(url, ed, IP缓存) {
+async function 升级WS请求(url, ed, ctx) {
 	const state = { cancelled: false }; const 协议 = url.pathname.split('/').pop(); const [客户端, WS接口] = Object.values(new WebSocketPair()); WS接口.accept(); WS接口.binaryType = 'arraybuffer';
 	WS接口.addEventListener('close', (e) => { state.cancelled = true; }); WS接口.addEventListener('error', (e) => { state.cancelled = true; try { WS接口?.close(); } catch { } });//addEventListener提前
-	启动传输管道(WS接口, url, ed, 协议, state, IP缓存).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
+	启动传输管道(WS接口, url, ed, 协议, state, ctx).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
 }
-async function 启动传输管道(WS接口, url, ed, 协议, state, IP缓存) {
-	let TCP接口, 传输数据, 首包数据 = true; const close = (err, source = 'unknown', print = false) => { if (print && err) console.log(`close [${source}]`, err.stack || err); state.cancelled = true; try { TCP接口?.close()?.catch(() => { }); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
+async function 启动传输管道(WS接口, url, ed, 协议, state, ctx) {
+	let TCP接口, 传输数据, 首包数据 = true; const ttl = 600; const IP缓存 = await 更新IP缓存(url, ctx, ttl);
+	const close = (err, source = 'unknown', print = false) => { if (print && err) console.log(`close [${source}]`, err.stack || err); state.cancelled = true; try { TCP接口?.close()?.catch(() => { }); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
-		start(controller) {
-			WS接口.addEventListener('message', (e) => { if (state.cancelled) return; try { controller.enqueue(e.data); } catch { } });// if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
-		},
+		start(controller) { WS接口.addEventListener('message', (e) => { if (state.cancelled) return; try { controller.enqueue(e.data); } catch { } }); },// if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
 		cancel() { state.cancelled = true; },
 	}).pipeTo(new WritableStream({
 		async write(chunk) {
-			if (首包数据) {
-				首包数据 = false; await 解析标头(chunk);
-			} else { if (state.cancelled) return; if (传输数据?.desiredSize == null) return; try { await 传输数据.write(chunk); } catch (err) { close(err, 'write'); } }
+			if (首包数据) { 首包数据 = false; await 解析标头(chunk); }
+			else { if (state.cancelled) return; if (传输数据?.desiredSize == null) return; try { await 传输数据.write(chunk); } catch (err) { close(err, 'write'); } }
 		},
 	}),).catch(err => close(err, 'pipeTo'));
 	async function 解析标头(数据) {
-		if (state.cancelled) return; let 目标集 = DNS目标集, 连接成功 = false, 项 = null, timeout = 2_000; const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; const { hostname: HOSTNAME, port: PORT, data, is_udp } = addrFuncMap[协议](数据);
-		if (is_udp) {
-			if (PORT !== 53) { throw new Error(`UDP请求只支持DNS解析`); } console.log("DNS over TCP", HOSTNAME, PORT);
-		} else {
-			目标集 = [new Target(HOSTNAME, PORT, 'ip'), ...Array.from(IP缓存.values()).slice(0, 20).sort(() => Math.random() - 0.5).slice(0, 8)];
-			const skip = url.searchParams.get('skip') === 'true'; if (skip) 目标集 = 目标集.slice(1);
+		if (state.cancelled) return; let 目标集 = DNS目标集, 连接成功 = false, 项 = null, timeout = 5_000, ips = null; const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; let { hostname: HOSTNAME, port: PORT, data, is_udp, addr_type } = addrFuncMap[协议](数据);
+		switch (addr_type) {
+			case 1: ips = [new Target(HOSTNAME, PORT, 'ip', isIpInCloudflareRange(ipv4ToInt(HOSTNAME), rangesV4))]; break; case 4: ips = [new Target(`[${HOSTNAME}]`, PORT, 'ip', isIpInCloudflareRange(ipv6ToInt(HOSTNAME), rangesV6))]; break;
+			case 3: ips = await get_ips_by_param_cache('A', HOSTNAME, ctx, ttl); if (ips.length === 0) ips = await get_ips_by_param_cache('AAAA', HOSTNAME, ctx, ttl); ips = ips.map(r => new Target(r.hostname, PORT, 'ip', r.is_cf)); break;
+		}
+		ips = ips.filter(r => !r.is_cf);
+		if (is_udp) { if (PORT !== 53) { throw new Error(`UDP请求只支持DNS解析`); } console.log("DNS over TCP", HOSTNAME, PORT); }
+		else {
+			if (ips.length > 0) { timeout = 3_000; 目标集 = [...ips, new Target(HOSTNAME, PORT, 'ip', false),] }// 遇到DNS污染时，可能归类成非CF网站，直连将失败
+			else { timeout = 2_000; 目标集 = [new Target(HOSTNAME, PORT, 'ip', false), ...Array.from(IP缓存.values()).slice(0, 20).sort(() => Math.random() - 0.5).slice(0, 8)]; }
 		}
 		for (const { hostname, port } of 目标集) {
 			if (state.cancelled) break; 项 = IP缓存.get(hostname);
-			try {
-				TCP接口 = connect({ hostname, port: port || PORT }); await withTimeout(TCP接口.opened, timeout, `连接超时`); 连接成功 = true; break;
-			} catch (连接错误) {
-				timeout = 1_000; if (TCP接口?.close) { TCP接口.close().catch(() => { }); } TCP接口 = null;
+			try { TCP接口 = connect({ hostname, port: port || PORT }); await withTimeout(TCP接口.opened, timeout, `连接超时`); 连接成功 = true; break; }
+			catch (连接错误) {
+				if (ips.length > 0) { timeout = 2_000; } else { timeout = 1_000; }
+				if (TCP接口?.close) { TCP接口.close().catch(() => { }); } TCP接口 = null;
 				if (项?.fail()) { IP缓存.delete(项.hostname); console.log("多次连接失败，删除反代:", 项.hostname, 项.port); }
 			}
 		}
@@ -48,14 +51,13 @@ async function 启动传输管道(WS接口, url, ed, 协议, state, IP缓存) {
 		if (协议 === VL) { if (WS接口.readyState === WebSocket.OPEN) WS接口.send(new Uint8Array([0, 0]).buffer) };
 		建立传输管道(data, is_udp, 项).catch(() => { });
 	}
-	async function 建立传输管道(写入初始数据, is_dns, 项) {
+	async function 建立传输管道(写入初始数据, is_dns, 项, hostname) {
 		传输数据 = TCP接口.writable.getWriter(); if (写入初始数据.length > 0) { await 传输数据.write(写入初始数据); }
-		const reader = TCP接口.readable.getReader({ mode: 'byob' });
-		const BYOB缓冲区大小 = 1024 * 512, 本地最大4KB = 1024 * 64, BYOB安全阈值 = BYOB缓冲区大小 - 本地最大4KB;
+		const reader = TCP接口.readable.getReader({ mode: 'byob' }); const BYOB缓冲区大小 = 1024 * 512, 本地最大4KB = 1024 * 64, BYOB安全阈值 = BYOB缓冲区大小 - 本地最大4KB;
 		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null; let timeout = TIMEOUT_30;
 		try {
 			while (!state.cancelled) {
-				const { value, done } = await withTimeout(reader.read(new Uint8Array(buffer, offset, 本地最大4KB)), timeout, '读超时'); if (done) break;
+				const { value, done } = await withTimeout(reader.read(new Uint8Array(buffer, offset, 本地最大4KB)), timeout, `读超时`); if (done) break;
 				if (timeout < TIMEOUT_60) { timeout += TIMEOUT_10; } if (timeout < TIMEOUT_60) { 项?.success(); }
 				buffer = value.buffer; offset += value.byteLength;
 				if (value.byteLength < 本地最大4KB || performance.now() - lastReadTime >= 50 || offset >= BYOB安全阈值) {
@@ -73,44 +75,44 @@ function addr_vl(数据) {
 	if (数据.byteLength < 26) { throw new Error('数据长度不足'); } const V = new Uint8Array(数据);
 	const 提取命令索引 = 18 + V[17]; const cmd = V[提取命令索引];
 	const 提取端口索引 = 提取命令索引 + 1; const port = new DataView(数据, 提取端口索引, 2).getUint16(0);
-	const 提取地址索引 = 提取端口索引 + 2; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
-	switch (V[提取地址索引]) {
+	const 提取地址索引 = 提取端口索引 + 2; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1; let addr_type = V[提取地址索引]; if (addr_type > 1) addr_type += 1;//统一addr_type
+	switch (addr_type) {
 		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
-		case 2: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
-		case 3: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
+		case 3: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
+		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':'); break;
 		default: throw new Error(`地址类型错误`);
 	}
-	return { hostname, port, data: V.subarray(地址索引 + 长度), is_udp: cmd === 2 };
+	return { hostname, port, data: V.subarray(地址索引 + 长度), is_udp: cmd === 2, addr_type };
 }
 function addr_tr(数据) {
 	if (数据.byteLength < 66) { throw new Error('数据长度不足'); } const V = new Uint8Array(数据);
 	const 提取命令索引 = 58; const cmd = V[提取命令索引];
-	const 提取地址索引 = 提取命令索引 + 1; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
-	switch (V[提取地址索引]) {
+	const 提取地址索引 = 提取命令索引 + 1; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1; const addr_type = V[提取地址索引];
+	switch (addr_type) {
 		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
 		case 3: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
-		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
+		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':'); break;
 		default: throw new Error(`地址类型错误`);
 	}
 	const 提取端口索引 = 地址索引 + 长度; const port = new DataView(数据, 提取端口索引, 2).getUint16(0);
-	return { hostname, port, data: V.subarray(提取端口索引 + 4), is_udp: cmd === 3 };
+	return { hostname, port, data: V.subarray(提取端口索引 + 4), is_udp: cmd === 3, addr_type };
 }
 function addr_ss(数据) {
 	if (数据.byteLength < 5) { throw new Error('数据长度不足'); } const V = new Uint8Array(数据);
-	const 提取地址索引 = 0; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1;
-	switch (V[提取地址索引]) {
+	const 提取地址索引 = 0; let 长度 = 0, hostname = '', 地址索引 = 提取地址索引 + 1; const addr_type = V[提取地址索引];
+	switch (addr_type) {
 		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
 		case 3: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
-		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = `[${Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':')}]`; break;
+		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':'); break;
 		default: throw new Error(`地址类型错误`);
 	}
 	const 提取端口索引 = 地址索引 + 长度; const port = new DataView(数据, 提取端口索引, 2).getUint16(0);
-	return { hostname, port, data: V.subarray(提取端口索引 + 2), is_udp: false };
+	return { hostname, port, data: V.subarray(提取端口索引 + 2), is_udp: false, addr_type };
 }
 async function 更新IP缓存(url, ctx, ttl) {
 	const search = url.search; let cache = IP缓存的映射.get(search); if (cache) { debug_log(`命中IP缓存，size:${cache.size}`); } else { cache = new IPCache(6); IP缓存的映射.set(search, cache); }
 	if (cache.is_fresh()) { return cache; } const ips = await get_ips_by_url(url, ctx, ttl);
-	for (const { hostname, port, type } of ips) { if (cache.has(hostname)) continue; cache.set(hostname, new Target(hostname, port, type)); }; cache.touch(); return cache;
+	for (const { hostname, port, type, is_cf } of ips) { if (cache.has(hostname)) continue; cache.set(hostname, new Target(hostname, port, type, is_cf)); }; cache.touch(); return cache;
 }
 async function getDnsRecord(domain, type) {
 	const apis = [`https://cloudflare-dns.com/dns-query?name=${domain}&type=${type}`, `https://dns.google/resolve?name=${domain}&type=${type}`, `https://223.5.5.5/resolve?name=${domain}&type=${type}`,]; // 仅阿里Question是{}不是[]
@@ -121,7 +123,7 @@ async function getDnsRecord(domain, type) {
 		} catch { }
 	} return [];
 }
-function ip_to_obj(ip, port, type) { ip = ip.trim(); if (/.*:.*:.*/.test(ip)) ip = `[${ip}]`; const u = new URL('url://' + ip); return { hostname: u.hostname, port: +(u.port || port), type }; }
+function ip_to_obj(ip, port, type) { ip = ip.trim(); let is_cf = false; if (/.*:.*:.*/.test(ip)) { is_cf = isIpInCloudflareRange(ipv6ToInt(ip), rangesV6); ip = `[${ip}]`; } else { is_cf = isIpInCloudflareRange(ipv4ToInt(ip), rangesV4); } const u = new URL('url://' + ip); return { hostname: u.hostname, port: +(u.port || port), type, is_cf }; }
 async function dns_ip(domain, type) { const u = new URL('url://' + domain); return (await getDnsRecord(u.hostname, type)).map(ip => ip_to_obj(ip, u.port, type)) }
 async function dns_txt(domain, type) { const u = new URL('url://' + domain); const txt = (await getDnsRecord(u.hostname, type))[0]; return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port, type)) }
 async function url_txt(url) { const u = new URL(url); const txt = await fetch(u.href, { signal: AbortSignal.timeout(2000) }).then(r => r.text()); return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port, 'url')) }
@@ -141,6 +143,19 @@ function ws_path(uuid, AAAA) { const v2 = new URL(`url://127.0.0.1:80/${uuid}/pr
 function 基础链接1(hostname, path, is_tls, protocol) { const v1 = new URL(`pro-to-col://12345678-1234-1234-1234-123456789012${String.fromCharCode(64)}www.wto.org:${is_tls ? 443 : 80}?security=${is_tls ? 'tls' : 'none'}&sni=${hostname}&fp=chrome&type=ws&host=${hostname}#CF-pro-to-col`); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', path); return v1.href.replace(/pro-to-col/g, protocol); };
 function 基础链接2(hostname, path, is_tls, protocol) { const v1 = new URL(`pro-to-col://bm9uZToxMjM0NTY3OC0xMjM0LTEyMzQtMTIzNC0xMjM0NTY3ODkwMTI${String.fromCharCode(64)}www.wto.org:${is_tls ? 443 : 80}#CF-pro-to-col`); v1.searchParams.set('plugin', `${V2};mode=websocket;host=${hostname};path=${path};${is_tls ? 'tls;' : ''}mux=0`); return v1.href.replace(/pro-to-col/g, protocol); };
 function 订阅网页(hostname, uuid) { const path = ws_path(uuid, AAAA); return `=== TLS ===\n\n${基础链接1(hostname, path, true, VL)}\n\n${基础链接1(hostname, path, true, TR)}\n\n${基础链接2(hostname, path, true, SS)}\n\n\n=== NO TLS ===\n\n${基础链接1(hostname, path, false, VL)}\n\n${基础链接2(hostname, path, false, SS)}`; }
-class Target { constructor(hostname, port, type, failCount = 0) { this.hostname = hostname; this.port = port; this.type = type; this.failCount = failCount; this.MAX_FAIL = 10; }; success() { this.failCount /= 2; }; fail() { ++this.failCount; return this.shouldRemove(); }; shouldRemove() { if (this.type === 'ip') return false; return this.failCount >= this.MAX_FAIL; }; }
+class Target { constructor(hostname, port, type, is_cf) { this.hostname = hostname; this.port = port; this.type = type; this.is_cf = is_cf; this.failCount = 0; this.MAX_FAIL = 10; }; success() { this.failCount /= 2; }; fail() { ++this.failCount; return this.shouldRemove(); }; shouldRemove() { if (this.type === 'ip') return false; return this.failCount >= this.MAX_FAIL; }; }
 class IPCache { constructor(ttlHours = 2) { this.map = new Map(); this.ttl = ttlHours * 60 * 60 * 1000; this.updatedAt = 0; }; get size() { return this.map.size; }; has(key) { return this.map.has(key); }; set(key, value) { this.map.set(key, value); }; delete(key) { return this.map.delete(key); }; get(key) { return this.map.get(key); }; values() { return this.map.values(); }; touch() { this.updatedAt = Date.now(); }; is_fresh() { return (this.size > 0 && Date.now() - this.updatedAt < this.ttl); } }
 function debug_log(...data) { if (DEBUG) { console.log(...data); } }; const withTimeout = (promise, ms, message) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),]);
+function ipv6ToInt(ip) {
+	const parts = ip.split(':'); const result = []; const emptyIndex = parts.indexOf('');
+	if (emptyIndex !== -1) { const zeroCount = 8 - parts.filter(p => p !== '').length; result.push(...parts.slice(0, emptyIndex), ...Array(zeroCount).fill('0000'), ...parts.slice(emptyIndex + 1)); } else { result.push(...parts); }
+	return result.slice(0, 8).map(part => part.padStart(4, '0')).reduce((acc, part) => (acc << 16n) | BigInt('0x' + part), 0n);
+}
+function ipv4ToInt(ip) { const parts = ip.split('.'); return (parseInt(parts[0]) << 24) + (parseInt(parts[1]) << 16) + (parseInt(parts[2]) << 8) + parseInt(parts[3]); }
+function cidrV4ToRange(cidr) { const [network, maskLength] = cidr.split('/'); const mask = maskLength === undefined ? 32 : parseInt(maskLength, 10); const rangeSize = Math.pow(2, 32 - mask); const start = ipv4ToInt(network); const end = start + rangeSize - 1; return { start: BigInt(start), end: BigInt(end), version: 4 }; }
+function cidrV6ToRange(cidr) { const [network, maskLength] = cidr.split('/'); const mask = maskLength === undefined ? 128 : parseInt(maskLength, 10); const rangeSize = 2n ** BigInt(128 - mask); const start = ipv6ToInt(network); const end = start + rangeSize - 1n; return { start, end, version: 6 }; }
+const cidrListV4 = ['103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '104.16.0.0/13', '104.24.0.0/14', '108.162.192.0/18', '131.0.72.0/22', '141.101.64.0/18', '162.158.0.0/15', '172.64.0.0/13', '173.245.48.0/20', '188.114.96.0/20', '190.93.240.0/20', '197.234.240.0/22', '198.41.128.0/17'];
+const cidrListV6 = ['2400:cb00::/32', '2405:8100::/32', '2405:b500::/32', '2606:4700::/32', '2803:f800::/32', '2a06:98c0::/29', '2c0f:f248::/32'];
+const rangesV4 = cidrListV4.map(cidr => cidrV4ToRange(cidr)).sort((a, b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
+const rangesV6 = cidrListV6.map(cidr => cidrV6ToRange(cidr)).sort((a, b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
+function isIpInCloudflareRange(ipInt, ranges) { for (const range of ranges) { if (ipInt < range.start) { break; } if (ipInt <= range.end) { return true; } } return false; }
