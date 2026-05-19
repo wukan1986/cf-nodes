@@ -1122,7 +1122,7 @@ function ClashObj(proxies) {
 				'+.workers.dev': ECH_DNS,
 			},
 		},
-		proxies: [{ name: ".🔒锁定 -> ♻️自动", type: "socks5", server: "127.0.0.1", port: 65535 }],
+		proxies: [{ name: ".:🔒锁定→♻️自动", type: "socks5", server: "127.0.0.1", port: 65535 }],
 		"proxy-groups": [
 			{
 				name: "🚀节点选择",
@@ -1151,12 +1151,12 @@ function ClashObj(proxies) {
 				type: "select",
 				proxies: ["🚀节点选择", "🇭🇰香港自动", "🇹🇼台湾自动", "🇯🇵日本自动", "🇰🇷韩国自动", "🇸🇬新加坡自动", "🇺🇸美国自动", "DIRECT", "REJECT"]
 			},
-			{ name: "🇭🇰香港自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|HK|香港", },
-			{ name: "🇹🇼台湾自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|TW|台湾", },
-			{ name: "🇯🇵日本自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|JP|日本", },
-			{ name: "🇰🇷韩国自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|KR|韩国", },
-			{ name: "🇸🇬新加坡自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|SG|新加坡", },
-			{ name: "🇺🇸美国自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "->|US|美国", },
+			{ name: "🇭🇰香港自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|HK|香港", },
+			{ name: "🇹🇼台湾自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|TW|台湾", },
+			{ name: "🇯🇵日本自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|JP|日本", },
+			{ name: "🇰🇷韩国自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|KR|韩国", },
+			{ name: "🇸🇬新加坡自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|SG|新加坡", },
+			{ name: "🇺🇸美国自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|US|美国", },
 			{
 				name: "☁️Cloudflare",
 				type: "select",
@@ -1169,11 +1169,13 @@ function ClashObj(proxies) {
 			"GEOSITE,cn,DIRECT",
 			"GEOSITE,microsoft@cn,DIRECT",
 			"GEOSITE,apple-cn,DIRECT",
-			"GEOSITE,google-cn,DIRECT",
 			"GEOSITE,steam@cn,DIRECT",
 			"GEOSITE,category-games@cn,DIRECT",
 			"DOMAIN-SUFFIX,workers.dev,🚀节点选择", // 一定要用
 			"GEOSITE,cloudflare,☁️Cloudflare", // 管理面板最好不用
+			"GEOSITE,youtube,🚀节点选择",
+			"GEOSITE,google,🚀节点选择",
+			"GEOSITE,tiktok,🚀节点选择",
 			"GEOSITE,gfw,🚀节点选择",
 			"GEOIP,telegram,🚀节点选择",
 			"GEOIP,private,DIRECT",
@@ -1188,7 +1190,7 @@ function ClashObj(proxies) {
 
 	clash.proxies.push(...proxies);
 	const names = proxies.map(proxy => proxy.name);
-	clash["proxy-groups"][1].proxies.push(".🔒锁定 -> ♻️自动", ...names);
+	clash["proxy-groups"][1].proxies.push(".:🔒锁定→♻️自动", ...names);
 
 	return clash;
 }
