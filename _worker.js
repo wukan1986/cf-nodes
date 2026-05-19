@@ -1166,7 +1166,6 @@ function ClashObj(proxies) {
 		rules: [
 			"GEOSITE,private,DIRECT",
 			"GEOSITE,category-ads-all,REJECT",
-			"GEOSITE,cn,DIRECT",
 			"GEOSITE,microsoft@cn,DIRECT",
 			"GEOSITE,apple-cn,DIRECT",
 			"GEOSITE,steam@cn,DIRECT",
@@ -1177,6 +1176,7 @@ function ClashObj(proxies) {
 			"GEOSITE,google,🚀节点选择",
 			"GEOSITE,tiktok,🚀节点选择",
 			"GEOSITE,gfw,🚀节点选择",
+			"GEOSITE,cn,DIRECT",
 			"GEOIP,telegram,🚀节点选择",
 			"GEOIP,private,DIRECT",
 			"GEOIP,CN,DIRECT",
