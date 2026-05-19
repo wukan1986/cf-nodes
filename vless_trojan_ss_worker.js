@@ -14,7 +14,7 @@ async function 升级WS请求(url, ed, ctx) {
 	启动传输管道(WS接口, url, ed, 协议, state, ctx).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
 }
 async function 启动传输管道(WS接口, url, ed, 协议, state, ctx) {
-	let TCP接口, 传输数据, 首包数据 = true; const ttl = 600; const IP缓存 = await 更新IP缓存(url, ctx, ttl);
+	let TCP接口, 传输数据, 首包数据 = true; const ttl = 300; const IP缓存 = await 更新IP缓存(url, ctx, ttl);
 	const close = (err, source = 'unknown', print = false) => { if (print && err) console.log(`close [${source}]`, err.stack || err); state.cancelled = true; try { TCP接口?.close()?.catch(() => { }); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
 		start(controller) { WS接口.addEventListener('message', (e) => { if (state.cancelled) return; try { controller.enqueue(e.data); } catch { } }); },// if (ed) { controller.enqueue(Uint8Array.fromBase64(ed, { alphabet: 'base64url' }).buffer); }
@@ -26,37 +26,41 @@ async function 启动传输管道(WS接口, url, ed, 协议, state, ctx) {
 		},
 	}),).catch(err => close(err, 'pipeTo'));
 	async function 解析标头(数据) {
-		if (state.cancelled) return; let 目标集 = DNS目标集, 连接成功 = false, 项 = null, timeout = 5_000, ips = null; const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; let { hostname: HOSTNAME, port: PORT, data, is_udp, addr_type } = addrFuncMap[协议](数据);
-		switch (addr_type) {
-			case 1: ips = [new Target(HOSTNAME, PORT, 'ip', isIpInCloudflareRange(ipv4ToInt(HOSTNAME), rangesV4))]; break; case 4: ips = [new Target(`[${HOSTNAME}]`, PORT, 'ip', isIpInCloudflareRange(ipv6ToInt(HOSTNAME), rangesV6))]; break;
-			case 3: ips = await get_ips_by_param_cache('A', HOSTNAME, ctx, ttl); if (ips.length === 0) ips = await get_ips_by_param_cache('AAAA', HOSTNAME, ctx, ttl); ips = ips.map(r => new Target(r.hostname, PORT, 'ip', r.is_cf)); break;
-		}
-		ips = ips.filter(r => !r.is_cf);
-		if (is_udp) { if (PORT !== 53) { throw new Error(`UDP请求只支持DNS解析`); } console.log("DNS over TCP", HOSTNAME, PORT); }
+		if (state.cancelled) return; let 目标集 = DNS目标集, 连接成功 = false, 项 = null, timeout = 0, ips = []; const fixed = url.searchParams.get('fixed') === 'true'; const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; let { hostname: HOSTNAME, port: PORT, data, is_udp, addr_type } = addrFuncMap[协议](数据);
+		if (is_udp) { throw new Error(`UDP请求不支持`); console.log("DNS over TCP", HOSTNAME, PORT); }
+		if (fixed) { timeout = 10_000; 目标集 = Array.from(IP缓存.values()).slice(0, 1); }
 		else {
-			if (ips.length > 0) { timeout = 3_000; 目标集 = [...ips, new Target(HOSTNAME, PORT, 'ip', false),] }// 遇到DNS污染时，可能归类成非CF网站，直连将失败
+			switch (addr_type) {
+				case 1: ips = [new Target(HOSTNAME, PORT, 'ip', isIpInCloudflareRange(ipv4ToInt(HOSTNAME), rangesV4))]; break; case 4: ips = [new Target(`[${HOSTNAME}]`, PORT, 'ip', isIpInCloudflareRange(ipv6ToInt(HOSTNAME), rangesV6))]; break;
+				case 3: ips = await get_ips_by_param_cache('A', HOSTNAME, ctx, ttl); if (ips.length === 0) ips = await get_ips_by_param_cache('AAAA', HOSTNAME, ctx, ttl); ips = ips.map(r => new Target(r.hostname, PORT, 'ip', r.is_cf)); break;
+			}
+			ips = ips.filter(r => !r.is_cf); // 留下非CF的IP
+			if (ips.length > 0) { timeout = 5_000; 目标集 = [...ips, new Target(HOSTNAME, PORT, 'ip', false),]; }// 遇到DNS污染时，可能归类成非CF网站，直连将失败，补两个IP?
 			else { timeout = 2_000; 目标集 = [new Target(HOSTNAME, PORT, 'ip', false), ...Array.from(IP缓存.values()).slice(0, 20).sort(() => Math.random() - 0.5).slice(0, 8)]; }
 		}
 		for (const { hostname, port } of 目标集) {
 			if (state.cancelled) break; 项 = IP缓存.get(hostname);
-			try { TCP接口 = connect({ hostname, port: port || PORT }); await withTimeout(TCP接口.opened, timeout, `连接超时`); 连接成功 = true; break; }
+			try {
+				TCP接口 = connect({ hostname, port: port || PORT }); await withTimeout(TCP接口.opened, timeout, `连接 超时 ${HOSTNAME} ${hostname}`); 连接成功 = true;
+				if (协议 === VL) { if (WS接口.readyState === WebSocket.OPEN) WS接口.send(new Uint8Array([0, 0]).buffer) };
+				建立传输管道(data, is_udp, 项, HOSTNAME, hostname).catch(() => { });
+				break;
+			}
 			catch (连接错误) {
-				if (ips.length > 0) { timeout = 2_000; } else { timeout = 1_000; }
+				if (fixed) { } else { if (ips.length > 0) { timeout = 2_000; } else { timeout = 1_000; } }
 				if (TCP接口?.close) { TCP接口.close().catch(() => { }); } TCP接口 = null;
 				if (项?.fail()) { IP缓存.delete(项.hostname); console.log("多次连接失败，删除反代:", 项.hostname, 项.port); }
 			}
 		}
 		if (!连接成功) throw new Error(`无法连接到目标服务器: ${HOSTNAME}:${PORT} - 目标集长度：${目标集.length}`);
-		if (协议 === VL) { if (WS接口.readyState === WebSocket.OPEN) WS接口.send(new Uint8Array([0, 0]).buffer) };
-		建立传输管道(data, is_udp, 项).catch(() => { });
 	}
-	async function 建立传输管道(写入初始数据, is_dns, 项, hostname) {
+	async function 建立传输管道(写入初始数据, is_dns, 项, HOSTNAME, hostname) {
 		传输数据 = TCP接口.writable.getWriter(); if (写入初始数据.length > 0) { await 传输数据.write(写入初始数据); }
 		const reader = TCP接口.readable.getReader({ mode: 'byob' }); const BYOB缓冲区大小 = 1024 * 512, 本地最大4KB = 1024 * 64, BYOB安全阈值 = BYOB缓冲区大小 - 本地最大4KB;
 		let buffer = new ArrayBuffer(BYOB缓冲区大小), offset = 0, lastReadTime = performance.now(); let chunk = null; let timeout = TIMEOUT_30;
 		try {
 			while (!state.cancelled) {
-				const { value, done } = await withTimeout(reader.read(new Uint8Array(buffer, offset, 本地最大4KB)), timeout, `读超时`); if (done) break;
+				const { value, done } = await withTimeout(reader.read(new Uint8Array(buffer, offset, 本地最大4KB)), timeout, `读 超时 ${HOSTNAME} ${hostname}`); if (done) break;
 				if (timeout < TIMEOUT_60) { timeout += TIMEOUT_10; } if (timeout < TIMEOUT_60) { 项?.success(); }
 				buffer = value.buffer; offset += value.byteLength;
 				if (value.byteLength < 本地最大4KB || performance.now() - lastReadTime >= 50 || offset >= BYOB安全阈值) {
@@ -79,7 +83,7 @@ function addr_vl(数据) {
 		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
 		case 3: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
 		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':'); break;
-		default: throw new Error(`地址类型错误`);
+		default: throw new Error(`地址类型错误 ${addr_type}`);
 	}
 	return { hostname, port, data: V.subarray(地址索引 + 长度), is_udp: cmd === 2, addr_type };
 }
@@ -91,7 +95,7 @@ function addr_tr(数据) {
 		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
 		case 3: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
 		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':'); break;
-		default: throw new Error(`地址类型错误`);
+		default: throw new Error(`地址类型错误 ${addr_type}`);
 	}
 	const 提取端口索引 = 地址索引 + 长度; const port = new DataView(数据, 提取端口索引, 2).getUint16(0);
 	return { hostname, port, data: V.subarray(提取端口索引 + 4), is_udp: cmd === 3, addr_type };
@@ -103,7 +107,7 @@ function addr_ss(数据) {
 		case 1: 长度 = 4; hostname = new Uint8Array(V.subarray(地址索引, 地址索引 + 长度)).join('.'); break;
 		case 3: 长度 = V[地址索引]; 地址索引 += 1; hostname = new TextDecoder().decode(V.subarray(地址索引, 地址索引 + 长度)); break;
 		case 4: 长度 = 16; const dataView = new DataView(数据, 地址索引, 长度); hostname = Array.from({ length: 8 }, (_, i) => dataView.getUint16(i * 2).toString(16)).join(':'); break;
-		default: throw new Error(`地址类型错误`);
+		default: throw new Error(`地址类型错误 ${addr_type}`);
 	}
 	const 提取端口索引 = 地址索引 + 长度; const port = new DataView(数据, 提取端口索引, 2).getUint16(0);
 	return { hostname, port, data: V.subarray(提取端口索引 + 2), is_udp: false, addr_type };
@@ -127,11 +131,11 @@ async function dns_ip(domain, type) { const u = new URL('url://' + domain); retu
 async function dns_txt(domain, type) { const u = new URL('url://' + domain); const txt = (await getDnsRecord(u.hostname, type))[0]; return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port, type)) }
 async function url_txt(url) { const u = new URL(url); const txt = await fetch(u.href, { signal: AbortSignal.timeout(2000) }).then(r => r.text()); return txt.split(/[\n,"]/).map(v => v.trim()).filter(Boolean).map(ip => ip_to_obj(ip, u.port, 'url')) }
 async function get_ips_by_param(key, value) { switch (key) { case 'ip': return [ip_to_obj(value, 0, 'ip')]; case 'A': return dns_ip(value, 'A'); case 'AAAA': return dns_ip(value, 'AAAA'); case 'TXT': return dns_txt(value, 'TXT'); case 'url': return url_txt(value); default: return null; } }
-async function get_ips_by_param_cache(key, value, ctx, ttl = 60) {
+async function get_ips_by_param_cache(key, value, ctx, ttl) {
 	const cache = caches.default; const cacheKey = new Request(`http://localhost/?${key}=${value}`, { method: "GET" }); const cached = await cache.match(cacheKey); if (cached) { const data = await cached.json(); debug_log(`命中DNS缓存，${key}=${value}, length:${data.length}`); return data; }
 	const ips = await get_ips_by_param(key, value); if (ips === null) return []; if (ips.length === 0) ttl = 90; console.log(`${key}=${value}, length:${ips.length}, ttl:${ttl}`); const response = new Response(JSON.stringify(ips), { headers: { "Content-Type": "application/json", "Cache-Control": `s-maxage=${ttl}`, }, }); ctx.waitUntil(cache.put(cacheKey, response.clone())); return ips;
 }
-async function get_ips_by_url(url, ctx, ttl = 60) {
+async function get_ips_by_url(url, ctx, ttl) {
 	if (正在刷新) return []; 正在刷新 = true;
 	const params = new URL(url).searchParams; const tasks = Array.from(params, ([key, value]) => { return get_ips_by_param_cache(key, value, ctx, ttl).catch(err => { return []; }); }); const ips = (await Promise.all(tasks)).flat();
 	正在刷新 = false; return ips;
