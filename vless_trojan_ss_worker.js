@@ -9,11 +9,11 @@ export default {
 	},
 };
 async function 升级WS请求(url, ed, ctx) {
-	const state = { cancelled: false }; const 协议 = url.pathname.split('/').pop(); const [客户端, WS接口] = Object.values(new WebSocketPair()); WS接口.accept(); WS接口.binaryType = 'arraybuffer';
+	const state = { cancelled: false }; const [客户端, WS接口] = Object.values(new WebSocketPair()); WS接口.accept(); WS接口.binaryType = 'arraybuffer';
 	WS接口.addEventListener('close', (e) => { state.cancelled = true; }); WS接口.addEventListener('error', (e) => { state.cancelled = true; try { WS接口?.close(); } catch { } });//addEventListener提前
-	启动传输管道(WS接口, url, ed, 协议, state, ctx).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
+	启动传输管道(WS接口, url, ed, state, ctx).catch(() => { }); return new Response(null, { status: 101, webSocket: 客户端 });
 }
-async function 启动传输管道(WS接口, url, ed, 协议, state, ctx) {
+async function 启动传输管道(WS接口, url, ed, state, ctx) {
 	let TCP接口, 传输数据, 首包数据 = true; const ttl = 300; const IP缓存 = await 更新IP缓存(url, ctx, ttl);
 	const close = (err, source = 'unknown', print = false) => { if (print && err) console.log(`close [${source}]`, err.stack || err); state.cancelled = true; try { TCP接口?.close()?.catch(() => { }); } catch { } try { WS接口?.close(); } catch { } WS接口 = TCP接口 = null; };
 	new ReadableStream({
@@ -26,7 +26,7 @@ async function 启动传输管道(WS接口, url, ed, 协议, state, ctx) {
 		},
 	}),).catch(err => close(err, 'pipeTo'));
 	async function 解析标头(数据) {
-		if (state.cancelled) return; let 目标集 = DNS目标集, 连接成功 = false, 项 = null, timeout = 0, ips = []; const fixed = url.searchParams.get('fixed') === 'true'; const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; let { hostname: HOSTNAME, port: PORT, data, is_udp, addr_type } = addrFuncMap[协议](数据);
+		if (state.cancelled) return; const 协议 = detectProtocol(数据); let 目标集 = DNS目标集, 连接成功 = false, 项 = null, timeout = 0, ips = []; const fixed = url.searchParams.get('fixed') === 'true'; const addrFuncMap = { [VL]: addr_vl, [TR]: addr_tr, [SS]: addr_ss }; let { hostname: HOSTNAME, port: PORT, data, is_udp, addr_type } = addrFuncMap[协议](数据);
 		if (is_udp) { throw new Error(`UDP请求不支持`); console.log("DNS over TCP", HOSTNAME, PORT); }
 		if (fixed) { timeout = 10_000; 目标集 = Array.from(IP缓存.values()).slice(0, 1); }
 		else {
@@ -73,6 +73,13 @@ async function 启动传输管道(WS接口, url, ed, 协议, state, ctx) {
 			close(e, 'pipe transport');
 		} finally { try { reader.releaseLock(); } catch { } }
 	}
+}
+function detectProtocol(数据) {
+	const V = new Uint8Array(数据);
+	if (V.length >= 58 && V[56] === 0x0d && V[57] === 0x0a) { return TR; }
+	if (V.length >= 26 && V[0] === 0) { if ([1, 2, 3].includes(V[18 + V[17]])) { return VL; } }
+	if (V.length >= 7 && [1, 3, 4].includes(V[0])) { return SS; }
+	return 'unknown';
 }
 function addr_vl(数据) {
 	if (数据.byteLength < 26) { throw new Error('数据长度不足'); } const V = new Uint8Array(数据);
@@ -142,7 +149,7 @@ async function get_ips_by_url(url, ctx, ttl) {
 }
 import { connect } from 'cloudflare:sockets'; let 正在刷新 = false, 路径 = null, UUID = null, DEBUG = false; const IP缓存的映射 = new Map(), DNS目标集 = [{ hostname: "8.8.4.4", port: 53 }, { hostname: "1.0.0.1", port: 53 }]; const TIMEOUT_10 = 10_000, TIMEOUT_30 = 30_000, TIMEOUT_60 = 60_000;
 const rev = s => s.split('').reverse().join('').toLowerCase(); const AAAA = rev('344:TeN.SsSsUiLmC.PiYxOrP'), VL = rev('SsElV'), TR = rev('NaJoRt'), SS = rev('sS'), V2 = rev('nIgUlP-yAr2v');
-function ws_path(uuid, AAAA) { const v2 = new URL(`url://127.0.0.1:80/${uuid}/pro-to-col`); /*v2.searchParams.set('AAAA', AAAA);*/ v2.searchParams.set('A', `{colo}.${AAAA}`); return decodeURIComponent(v2.pathname + v2.search); }
+function ws_path(uuid, AAAA) { const v2 = new URL(`url://127.0.0.1:80/${uuid}`); /*v2.searchParams.set('AAAA', AAAA);*/ v2.searchParams.set('A', `{colo}.${AAAA}`); return decodeURIComponent(v2.pathname + v2.search); }
 function 基础链接1(hostname, path, is_tls, protocol) { const v1 = new URL(`pro-to-col://12345678-1234-1234-1234-123456789012${String.fromCharCode(64)}www.wto.org:${is_tls ? 443 : 80}?security=${is_tls ? 'tls' : 'none'}&sni=${hostname}&fp=chrome&type=ws&host=${hostname}#CF-pro-to-col`); v1.searchParams.set('ech', "cloudflare-ech.com+https://223.5.5.5/dns-query"); v1.searchParams.set('path', path); return v1.href.replace(/pro-to-col/g, protocol); };
 function 基础链接2(hostname, path, is_tls, protocol) { const v1 = new URL(`pro-to-col://bm9uZToxMjM0NTY3OC0xMjM0LTEyMzQtMTIzNC0xMjM0NTY3ODkwMTI${String.fromCharCode(64)}www.wto.org:${is_tls ? 443 : 80}#CF-pro-to-col`); v1.searchParams.set('plugin', `${V2};mode=websocket;host=${hostname};path=${path};${is_tls ? 'tls;' : ''}mux=0`); return v1.href.replace(/pro-to-col/g, protocol); };
 function 订阅网页(hostname, uuid) { const path = ws_path(uuid, AAAA); return `=== TLS ===\n\n${基础链接1(hostname, path, true, VL)}\n\n${基础链接1(hostname, path, true, TR)}\n\n${基础链接2(hostname, path, true, SS)}\n\n\n=== NO TLS ===\n\n${基础链接1(hostname, path, false, VL)}\n\n${基础链接2(hostname, path, false, SS)}`; }
