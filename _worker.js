@@ -271,8 +271,13 @@ const decodeGarbledText = s => new TextDecoder().decode(Uint8Array.from(s, c => 
 // 编码：字符串 -> UTF-8字节 -> Latin-1字符串
 const encodeToGarbled = s => new TextEncoder().encode(s).reduce((str, byte) => str + String.fromCharCode(byte), '');
 
-
+const TLS端口 = [443, 2053, 2083, 2087, 2096, 8443];
+const NOTLS端口 = [80, 2052, 2082, 2086, 2095, 8080];
 function 更新协议链接(url, hostname, port, hash) {
+	// 如果是CDN的特殊端口，就强行改为0，等后面覆盖
+	// if (TLS端口.includes(port) || NOTLS端口.includes(port)) {
+	// 	port = 0;
+	// }
 	if (url.startsWith('vmess://')) {
 		// vmess
 		const config = JSON.parse(atob(url.substring(8)));
@@ -321,7 +326,7 @@ function 更新链接列表(addresses, nodes) {
 	if (addresses.length === 0) return nodes;
 	return addresses.map(({ hostname, port, hash, remark }, i) => {
 		const url = nodes[i % nodes.length];
-		return 更新协议链接(url, hostname, port, remark);
+		return 更新协议链接(url, hostname, +port, remark);
 	});
 }
 
