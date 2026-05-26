@@ -219,7 +219,7 @@ const cached_fetch_30 = withTimeoutCache(fetch_url, { maxSize: 10, ttl: 1000 * 3
 
 function parse_hostname_item(line) {
 	// 支持从vless提取hostname, 也支持从`127.0.0.1:443#备注`提取hostname
-	const url = new URL(line.includes('://') ? line : "https://" + line);
+	const url = new URL(line.includes('://') ? line : "url://" + line);
 	const hostname = url.hostname;
 	const hash = decodeURIComponent(url.hash ? url.hash.substring(1) : ''); // 去掉#
 	const port = url.port; // 没写就为空
@@ -275,9 +275,9 @@ const TLS端口 = [443, 2053, 2083, 2087, 2096, 8443];
 const NOTLS端口 = [80, 2052, 2082, 2086, 2095, 8080];
 function 更新协议链接(url, hostname, port, hash) {
 	// 如果是CDN的特殊端口，就强行改为0，等后面覆盖
-	// if (TLS端口.includes(port) || NOTLS端口.includes(port)) {
-	// 	port = 0;
-	// }
+	if (TLS端口.includes(port) || NOTLS端口.includes(port)) {
+		port = 0;
+	}
 	if (url.startsWith('vmess://')) {
 		// vmess
 		const config = JSON.parse(atob(url.substring(8)));
