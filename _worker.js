@@ -1071,6 +1071,7 @@ function deduplicateProxyNamesConcise(proxies) {
 }
 const isIP = (ip) => /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) || /.*:.*:.*/.test(ip);
 function ClashObj(proxies) {
+	const regions = ["🇭🇰香港", "🇹🇼台湾", "🇯🇵日本", "🇰🇷韩国", "🇸🇬新加坡", "🇺🇸美国", "🇨🇦加拿大"];
 	const clash = {
 		port: 7890,
 		"socks-port": 7891,
@@ -1080,7 +1081,6 @@ function ClashObj(proxies) {
 		"unified-delay": true,
 		"global-client-fingerprint": "firefox",
 		"external-controller": "127.0.0.1:9090",
-		// TODO DNS是否合适未测试
 		dns: {
 			enable: true,
 			ipv6: true,
@@ -1127,7 +1127,7 @@ function ClashObj(proxies) {
 			{
 				name: "🚀节点选择",
 				type: "select",
-				proxies: ["♻️自动选择", "🔮轮询", "🇭🇰香港自动", "🇹🇼台湾自动", "🇯🇵日本自动", "🇰🇷韩国自动", "🇸🇬新加坡自动", "🇺🇸美国自动", "DIRECT"]
+				proxies: ["♻️自动选择", "🔮轮询", ...regions, "DIRECT"]
 			},
 			{
 				name: "♻️自动选择",
@@ -1149,18 +1149,19 @@ function ClashObj(proxies) {
 			{
 				name: "🐟漏网之鱼",
 				type: "select",
-				proxies: ["🚀节点选择", "🇭🇰香港自动", "🇹🇼台湾自动", "🇯🇵日本自动", "🇰🇷韩国自动", "🇸🇬新加坡自动", "🇺🇸美国自动", "DIRECT", "REJECT"]
+				proxies: ["🚀节点选择", ...regions, "DIRECT", "REJECT"]
 			},
-			{ name: "🇭🇰香港自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|HK|香港", },
-			{ name: "🇹🇼台湾自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|TW|台湾", },
-			{ name: "🇯🇵日本自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|JP|日本", },
-			{ name: "🇰🇷韩国自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|KR|韩国", },
-			{ name: "🇸🇬新加坡自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|SG|新加坡", },
-			{ name: "🇺🇸美国自动", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|US|美国", },
+			{ name: "🇭🇰香港", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|HK|香港", },
+			{ name: "🇹🇼台湾", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|TW|台湾", },
+			{ name: "🇯🇵日本", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|JP|日本", },
+			{ name: "🇰🇷韩国", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|KR|韩国", },
+			{ name: "🇸🇬新加坡", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|SG|新加坡", },
+			{ name: "🇺🇸美国", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|US|美国", },
+			{ name: "🇨🇦加拿大", type: "url-test", url: "https://www.google.com/generate_204", interval: 300, tolerance: 50, "include-all": true, filter: "→|CA|加拿大", },
 			{
 				name: "☁️Cloudflare",
 				type: "select",
-				proxies: ["DIRECT", "🚀节点选择", "🇭🇰香港自动", "🇹🇼台湾自动", "🇯🇵日本自动", "🇰🇷韩国自动", "🇸🇬新加坡自动", "🇺🇸美国自动"]
+				proxies: ["DIRECT", "🚀节点选择", ...regions]
 			},
 		],
 		rules: [
@@ -1191,6 +1192,28 @@ function ClashObj(proxies) {
 	clash.proxies.push(...proxies);
 	const names = proxies.map(proxy => proxy.name);
 	clash["proxy-groups"][1].proxies.push(".:🔒锁定→♻️自动", ...names);
+
+	const hiddenGroupNames = [];
+	clash["proxy-groups"].forEach(group => {
+		if (group.filter) {
+			const matchedProxies = names.filter(name => new RegExp(group.filter).test(name));
+			if (matchedProxies.length === 0) {
+				group.hidden = true;
+				hiddenGroupNames.push(group.name);
+			}
+		}
+	});
+
+	if (hiddenGroupNames.length > 0) {
+		clash["proxy-groups"].forEach(group => {
+			if (group.type === "select") {
+				// 过滤掉在hiddenGroupNames中的组名
+				group.proxies = group.proxies.filter(proxyName =>
+					!hiddenGroupNames.includes(proxyName)
+				);
+			}
+		});
+	}
 
 	return clash;
 }
