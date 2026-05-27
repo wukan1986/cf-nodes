@@ -241,7 +241,7 @@ function parse_hostname_text(content) {
 }
 
 function group_hostnames_by_hash(hostnames) {
-	const grouped = Object.groupBy(hostnames, item => item.hash);
+	const grouped = Object.groupBy(hostnames, item => item.hash.substring(0, 2));
 	// 返回的是对象，键是hash值，值是数组
 	// 如果需要Map格式，可以转换
 	return new Map(Object.entries(grouped));
