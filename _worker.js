@@ -2,12 +2,6 @@
 const ECH_SNI = "cloudflare-ech.com";
 const ECH_DNS = "https://dns.alidns.com/dns-query";
 
-// 提交到仓库时用
-const HOME_GITHUB = "https://raw.githubusercontent.com/wukan1986/cf-nodes/main/home.html";
-const LINK_GITHUB = "https://raw.githubusercontent.com/wukan1986/cf-nodes/main/link.html";
-// 本地测试访问127.0.0.1时使用，可本地执行http-server，开启服务
-const HOME_LOCAL = "http://127.0.0.1:8080/home.html";
-const LINK_LOCAL = "http://127.0.0.1:8080/link.html";
 /**
  * 地区名称映射 (全球主要 Cloudflare 节点所在国家/地区)
  */
@@ -506,27 +500,7 @@ async function fetch_hostnames(target_url) {
 	}
 }
 
-async function handle_home(url) {
-	const _url = url.hostname === '127.0.0.1' ? HOME_LOCAL : HOME_GITHUB;
-	try {
-		const text = await await cached_fetch_30(...make_url_options(_url, { signal: AbortSignal.timeout(5000) }));
-		return new Response(text, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Expires': '0' } });
-	} catch (e) {
-		console.log(e, _url);
-		return new Response(`${e}<br/>${_url}`, { headers: { status: 500, 'Content-Type': 'text/html; charset=utf-8' } });
-	}
-}
 
-async function handle_link(url) {
-	const _url = url.hostname === '127.0.0.1' ? LINK_LOCAL : LINK_GITHUB;
-	try {
-		const text = await await cached_fetch_30(...make_url_options(_url, { signal: AbortSignal.timeout(5000) }));
-		return new Response(text, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Expires': '0' } });
-	} catch (e) {
-		console.log(e, _url);
-		return new Response(`${e}<br/>${_url}`, { headers: { status: 500, 'Content-Type': 'text/html; charset=utf-8' } });
-	}
-}
 
 async function handle_link_api(url, request, env) {
 	const auth = await apiKeyAuth(request, env);
@@ -1240,16 +1214,12 @@ export default {
 				return await handle_v2ray(url, request, false);
 			case '/base64':
 				return await handle_v2ray(url, request, true);
-			case '/home':
-				return await handle_home(url);
-			case '/link':
-				return await handle_link(url);
 			case '/link/api':
 				return await handle_link_api(url, request, env);
 			case '/sub':
 				return await handle_sub(url, request);
 			default:
-				return new Response('Hello World!');
+				return env.ASSETS.fetch(request);
 		}
 	},
 };

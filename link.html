@@ -627,13 +627,13 @@
                 <div class="guide-item">
                     <h3><span class="type-redirect">跳转</span> <i class="fas fa-external-link-alt"></i></h3>
                     <p>由浏览器进行307跳转到目标地址。<strong>注意：</strong>部分软件不支持307跳转，此时请选择"拼接"类型。</p>
-                    <p>链接后可以接`#`中文备注说明，不影响跳转</p>
+                    <p>链接后可以接“#”中文备注说明，不影响跳转</p>
                 </div>
                 <div class="guide-item">
                     <h3><span class="type-concat">拼接</span> <i class="fas fa-share"></i></h3>
                     <p>由服务器爬取多个目标页面内容，先试着Base64解码，然后合并发给用户。可合并多个订阅链接</p>
-                    <p>以`#`开头的行是注释说明，不会被爬取</p>
-                    <p>爬取时支持`_ua`参数</p>
+                    <p>以“#”开头的行是注释说明，不会被爬取</p>
+                    <p>爬取时支持“_ua”参数</p>
                 </div>
             </div>
         </div>
@@ -649,7 +649,7 @@
                     <p>您可以通过 API 直接更新单个链接的内容和类型，而无需通过网页界面。</p>
 
                     <h4>1. 使用文件内容只更新 note 字段</h4>
-                    <div class="api-code">curl -X PUT "<span class="value">https://your-domain.com/s/abc123`</span>" \
+                    <div class="api-code">curl -X PUT "<span class="value">https://your-domain.com/s/abc123</span>" \
                         -H "Authorization: Bearer <span class="param">API_KEY</span>" \
                         -H "Content-Type: text/plain" \
                         --data-binary "@/path/to/file.txt"</div>
