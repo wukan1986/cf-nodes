@@ -586,12 +586,20 @@ async function handle_s(url, request, env) {
 			const data = [];
 			for (const result of results) {
 				if (result.status === 'fulfilled') {
-					const txt = await result.value.text();
-					try {
-						data.push(atob(txt)); // 拼接前先解码
-					} catch (e) {
-						// 请求成功
-						data.push(txt);
+					const response = result.value;
+
+					// 只处理 HTTP 200 响应
+					if (response.status === 200) {
+						const txt = await response.text();
+						try {
+							data.push(atob(txt)); // 拼接前先解码
+						} catch (e) {
+							// 请求成功但解码失败
+							data.push(txt);
+						}
+					} else {
+						// 非200响应，记录日志
+						console.warn(`Non-200 response: ${response.status}`, response.url);
 					}
 				} else {
 					// 请求失败，可记录日志或放入占位符
